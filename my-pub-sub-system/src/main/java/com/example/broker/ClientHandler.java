@@ -31,29 +31,30 @@ public class ClientHandler extends Thread implements Subscriber {
             while ((inputLine = in.readLine()) != null) {
                 System.out.println("Received: " + inputLine);
 
-                String[] parts = inputLine.split(" ");
+                String[] parts = inputLine.split(" ", 3);  // Split into three parts: command, topic_id, topic_name/message
                 String command = parts[0];
 
                 try {
                     switch (command) {
                         case "create":
-                            if (parts.length == 2) {
-                                String topicName = parts[1];
-                                broker.createTopic(topicName);
-                                out.println("Topic created: " + topicName);
+                            if (parts.length == 3) {
+                                String topicId = parts[1];
+                                String topicName = parts[2];
+                                broker.createTopic(topicId, topicName);  // Pass both topicId and topicName to Broker
+                                out.println("Topic created: " + topicName + " (ID: " + topicId + ")");
                             } else {
-                                out.println("Usage: create <topic_name>");
+                                out.println("Usage: create {topic_id} {topic_name}");
                             }
                             break;
 
                         case "publish":
-                            if (parts.length >= 3) {
+                            if (parts.length == 3) {
                                 String topicId = parts[1];
-                                String message = inputLine.substring(inputLine.indexOf(parts[2]));
+                                String message = parts[2];
                                 broker.publishMessage(topicId, message);
                                 out.println("Message published to " + topicId);
                             } else {
-                                out.println("Usage: publish <topic_id> <message>");
+                                out.println("Usage: publish {topic_id} {message}");
                             }
                             break;
 
@@ -63,7 +64,7 @@ public class ClientHandler extends Thread implements Subscriber {
                                 int count = broker.getSubscriberCount(topicId);
                                 out.println("Topic: " + topicId + " has " + count + " subscribers.");
                             } else {
-                                out.println("Usage: show <topic_id>");
+                                out.println("Usage: show {topic_id}");
                             }
                             break;
 
@@ -73,7 +74,7 @@ public class ClientHandler extends Thread implements Subscriber {
                                 broker.removeTopic(topicId);
                                 out.println("Topic deleted: " + topicId);
                             } else {
-                                out.println("Usage: delete <topic_id>");
+                                out.println("Usage: delete {topic_id}");
                             }
                             break;
 
@@ -91,7 +92,7 @@ public class ClientHandler extends Thread implements Subscriber {
                                 broker.addSubscriber(topicId, this);
                                 out.println("Subscribed to: " + topicId);
                             } else {
-                                out.println("Usage: sub <topic_id>");
+                                out.println("Usage: sub {topic_id}");
                             }
                             break;
 
@@ -105,7 +106,7 @@ public class ClientHandler extends Thread implements Subscriber {
                                 broker.unsubscribe(topicId, subscriberId);
                                 out.println("Unsubscribed from: " + topicId);
                             } else {
-                                out.println("Usage: unsub <topic_id>");
+                                out.println("Usage: unsub {topic_id}");
                             }
                             break;
 

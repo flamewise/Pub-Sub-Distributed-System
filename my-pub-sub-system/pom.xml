@@ -12,44 +12,43 @@
         <maven.compiler.target>1.8</maven.compiler.target>
     </properties>
 
-    <dependencies>
-        <!-- Add dependencies here -->
-        <!-- Example: JUnit for testing -->
-        <dependency>
-            <groupId>junit</groupId>
-            <artifactId>junit</artifactId>
-            <version>4.13.2</version>
-            <scope>test</scope>
-        </dependency>
-    </dependencies>
-
     <build>
         <plugins>
-            <!-- Compiler plugin to specify Java version -->
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.8.1</version>
-                <configuration>
-                    <source>${maven.compiler.source}</source>
-                    <target>${maven.compiler.target}</target>
-                </configuration>
-            </plugin>
-
-            <!-- Maven JAR plugin to specify the main class in the manifest -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-jar-plugin</artifactId>
-                <version>3.1.0</version>
+                <version>3.2.0</version>
                 <configuration>
                     <archive>
                         <manifest>
-                            <!-- Replace with your actual main class -->
-                            <mainClass>com.example.App</mainClass>
+                            <mainClass>${mainClass}</mainClass>
                         </manifest>
                     </archive>
                 </configuration>
             </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <profile>
+            <id>broker</id>
+            <properties>
+                <mainClass>com.example.broker.BrokerApp</mainClass>
+            </properties>
+        </profile>
+
+        <profile>
+            <id>publisher</id>
+            <properties>
+                <mainClass>com.example.publisher.PublisherApp</mainClass>
+            </properties>
+        </profile>
+
+        <profile>
+            <id>subscriber</id>
+            <properties>
+                <mainClass>com.example.subscriber.SubscriberApp</mainClass>
+            </properties>
+        </profile>
+    </profiles>
 </project>

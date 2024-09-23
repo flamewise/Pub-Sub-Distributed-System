@@ -1,27 +1,20 @@
 package com.example.broker;
 
-import com.example.subscriber.Subscriber;
 import java.io.PrintWriter;
 
 public interface Broker {
-    void createTopic(String topicName);
-    void publishMessage(String topicName, String message);
-    void addSubscriber(String topicName, Subscriber subscriber);
-    void removeSubscriber(String topicName, Subscriber subscriber);
-    void unsubscribe(String topicName, String subscriberId);
-    
-    // Start the broker (e.g., listen for connections)
     void start();
+    void connectToOtherBroker(String brokerIP, int brokerPort);
     
-    // Return subscriber count for a given topic
+    // Updated createTopic method to accept both topicId and topicName
+    void createTopic(String topicId, String topicName);
+    
+    void publishMessage(String topicId, String message);
+    void addSubscriber(String topicId, com.example.subscriber.Subscriber subscriber);
+    void removeSubscriber(String topicId, com.example.subscriber.Subscriber subscriber);
+    void unsubscribe(String topicId, String subscriberId);
     int getSubscriberCount(String topicId);
-
-    // Remove a topic
     void removeTopic(String topicId);
-
-    // List all topics available
     void listAllTopics(PrintWriter out);
-
-    // List current subscriptions of a subscriber
     void listSubscriptions(PrintWriter out, String subscriberId);
 }
