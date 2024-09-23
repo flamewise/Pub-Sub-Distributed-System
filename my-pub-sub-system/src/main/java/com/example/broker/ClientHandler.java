@@ -2,13 +2,17 @@ package com.example.broker;
 
 import com.example.subscriber.Subscriber;
 
-import java.io.*;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.PrintWriter;
 import java.net.Socket;
 
 public class ClientHandler extends Thread implements Subscriber {
     private Socket clientSocket;
     private Broker broker;
     private String subscriberId;
+    private PrintWriter out;
 
     public ClientHandler(Socket socket, Broker broker) {
         this.clientSocket = socket;
@@ -21,6 +25,8 @@ public class ClientHandler extends Thread implements Subscriber {
         try (BufferedReader in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
              PrintWriter out = new PrintWriter(clientSocket.getOutputStream(), true)) {
 
+            this.out = out; // Save the output stream for sending messages
+
             String inputLine;
             while ((inputLine = in.readLine()) != null) {
                 System.out.println("Received: " + inputLine);
@@ -28,88 +34,116 @@ public class ClientHandler extends Thread implements Subscriber {
                 String[] parts = inputLine.split(" ");
                 String command = parts[0];
 
-                switch (command) {
-                    case "create":
-                        if (parts.length == 3) {
-                            String topicName = parts[2];
-                            broker.createTopic(topicName);
-                            out.println("Topic created: " + topicName);
-                        }
-                        break;
+                try {
+                    switch (command) {
+                        case "create":
+                            if (parts.length == 2) {
+                                String topicName = parts[1];
+                                broker.createTopic(topicName);
+                                out.println("Topic created: " + topicName);
+                            } else {
+                                out.println("Usage: create <topic_name>");
+                            }
+                            break;
 
-                    case "publish":
-                        if (parts.length >= 3) {
-                            String topicId = parts[1];
-                            String message = inputLine.substring(inputLine.indexOf(parts[2]));
-                            broker.publishMessage(topicId, message);
-                            out.println("Message published to " + topicId);
-                        }
-                        break;
+                        case "publish":
+                            if (parts.length >= 3) {
+                                String topicId = parts[1];
+                                String message = inputLine.substring(inputLine.indexOf(parts[2]));
+                                broker.publishMessage(topicId, message);
+                                out.println("Message published to " + topicId);
+                            } else {
+                                out.println("Usage: publish <topic_id> <message>");
+                            }
+                            break;
 
-                    case "show":
-                        if (parts.length == 2) {
-                            String topicId = parts[1];
-                            int count = broker.getSubscriberCount(topicId);
-                            out.println("Topic: " + topicId + " has " + count + " subscribers.");
-                        }
-                        break;
+                        case "show":
+                            if (parts.length == 2) {
+                                String topicId = parts[1];
+                                int count = broker.getSubscriberCount(topicId);
+                                out.println("Topic: " + topicId + " has " + count + " subscribers.");
+                            } else {
+                                out.println("Usage: show <topic_id>");
+                            }
+                            break;
 
-                    case "delete":
-                        if (parts.length == 2) {
-                            String topicId = parts[1];
-                            broker.removeTopic(topicId);
-                            out.println("Topic deleted: " + topicId);
-                        }
-                        break;
+                        case "delete":
+                            if (parts.length == 2) {
+                                String topicId = parts[1];
+                                broker.removeTopic(topicId);
+                                out.println("Topic deleted: " + topicId);
+                            } else {
+                                out.println("Usage: delete <topic_id>");
+                            }
+                            break;
 
-                    case "list":
-                        if (parts.length == 2 && parts[1].equals("all")) {
-                            broker.listAllTopics(out);
-                        }
-                        break;
+                        case "list":
+                            if (parts.length == 2 && parts[1].equals("all")) {
+                                broker.listAllTopics(out);
+                            } else {
+                                out.println("Usage: list all");
+                            }
+                            break;
 
-                    case "sub":
-                        if (parts.length == 2) {
-                            String topicId = parts[1];
-                            broker.addSubscriber(topicId, this);
-                            out.println("Subscribed to: " + topicId);
-                        }
-                        break;
+                        case "sub":
+                            if (parts.length == 2) {
+                                String topicId = parts[1];
+                                broker.addSubscriber(topicId, this);
+                                out.println("Subscribed to: " + topicId);
+                            } else {
+                                out.println("Usage: sub <topic_id>");
+                            }
+                            break;
 
-                    case "current":
-                        broker.listSubscriptions(out, subscriberId);
-                        break;
+                        case "current":
+                            broker.listSubscriptions(out, subscriberId);
+                            break;
 
-                    case "unsub":
-                        if (parts.length == 2) {
-                            String topicId = parts[1];
-                            broker.unsubscribe(topicId, subscriberId);
-                            out.println("Unsubscribed from: " + topicId);
-                        }
-                        break;
+                        case "unsub":
+                            if (parts.length == 2) {
+                                String topicId = parts[1];
+                                broker.unsubscribe(topicId, subscriberId);
+                                out.println("Unsubscribed from: " + topicId);
+                            } else {
+                                out.println("Usage: unsub <topic_id>");
+                            }
+                            break;
 
-                    case "exit":
-                        out.println("Closing connection...");
-                        clientSocket.close();
-                        return;  // Exit the while loop
+                        case "exit":
+                            out.println("Closing connection...");
+                            clientSocket.close();
+                            return;  // Exit the while loop
 
-                    default:
-                        out.println("Unknown command. Please try again.");
-                        break;
+                        default:
+                            out.println("Unknown command. Please try again.");
+                            break;
+                    }
+                } catch (Exception e) {
+                    out.println("Error processing command: " + e.getMessage());
+                    e.printStackTrace();
                 }
             }
         } catch (IOException e) {
-            e.printStackTrace();
+            System.err.println("Client disconnected abruptly: " + clientSocket.getInetAddress());
+        } finally {
+            // Ensure the client socket is closed when the client disconnects
+            try {
+                if (clientSocket != null && !clientSocket.isClosed()) {
+                    clientSocket.close();
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         }
     }
 
     // Subscriber implementation methods
     @Override
     public void receiveMessage(String topicName, String message) {
-        System.out.println("Received message on topic " + topicName + ": " + message);
+        out.println("Received message on topic " + topicName + ": " + message); // Send message to client
+        System.out.println("Delivered message on topic " + topicName + " to subscriber: " + subscriberId);
     }
 
-    // Renamed to avoid conflict with Thread's getId()
     @Override
     public String getSubscriberId() {
         return subscriberId;
@@ -117,11 +151,11 @@ public class ClientHandler extends Thread implements Subscriber {
 
     @Override
     public void subscribe(String topicName) {
-        // Subscription logic
+        broker.addSubscriber(topicName, this);
     }
 
     @Override
     public void unsubscribe(String topicName) {
-        // Unsubscription logic
+        broker.unsubscribe(topicName, subscriberId);
     }
 }

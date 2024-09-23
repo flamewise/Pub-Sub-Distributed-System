@@ -12,7 +12,6 @@ public class BrokerImpl implements Broker {
     private final ConcurrentHashMap<String, CopyOnWriteArrayList<Subscriber>> topics;
     private ServerSocket serverSocket;
 
-    // Constructor that takes a port number
     public BrokerImpl(int port) throws IOException {
         this.topics = new ConcurrentHashMap<>();
         this.serverSocket = new ServerSocket(port);  // Initialize the ServerSocket with the port number
@@ -36,24 +35,30 @@ public class BrokerImpl implements Broker {
     @Override
     public void createTopic(String topicName) {
         topics.putIfAbsent(topicName, new CopyOnWriteArrayList<>());
+        System.out.println("Topic created: " + topicName);
     }
 
     @Override
     public void publishMessage(String topicName, String message) {
-        CopyOnWriteArrayList<Subscriber> subscribers = topics.get(topicName);
-        if (subscribers != null) {
-            for (Subscriber subscriber : subscribers) {
-                subscriber.receiveMessage(topicName, message);
+        if (topics.containsKey(topicName)) {
+            CopyOnWriteArrayList<Subscriber> subscribers = topics.get(topicName);
+            if (subscribers != null && !subscribers.isEmpty()) {
+                for (Subscriber subscriber : subscribers) {
+                    System.out.println("Delivering message to subscriber: " + subscriber.getSubscriberId());
+                    subscriber.receiveMessage(topicName, message);  // Send the message to each subscriber
+                }
+            } else {
+                System.out.println("No subscribers for topic: " + topicName);
             }
+        } else {
+            System.out.println("Topic not found: " + topicName);
         }
     }
 
     @Override
     public void addSubscriber(String topicName, Subscriber subscriber) {
-        topics.computeIfPresent(topicName, (key, subscribers) -> {
-            subscribers.add(subscriber);
-            return subscribers;
-        });
+        topics.computeIfAbsent(topicName, k -> new CopyOnWriteArrayList<>()).add(subscriber);
+        System.out.println("Subscriber " + subscriber.getSubscriberId() + " added to topic: " + topicName);
     }
 
     @Override
@@ -61,6 +66,7 @@ public class BrokerImpl implements Broker {
         CopyOnWriteArrayList<Subscriber> subscribers = topics.get(topicName);
         if (subscribers != null) {
             subscribers.remove(subscriber);
+            System.out.println("Subscriber " + subscriber.getSubscriberId() + " removed from topic: " + topicName);
         }
     }
 
@@ -69,6 +75,7 @@ public class BrokerImpl implements Broker {
         CopyOnWriteArrayList<Subscriber> subscribers = topics.get(topicName);
         if (subscribers != null) {
             subscribers.removeIf(sub -> sub.getSubscriberId().equals(subscriberId));
+            System.out.println("Subscriber with ID " + subscriberId + " unsubscribed from topic: " + topicName);
         }
     }
 
@@ -81,6 +88,7 @@ public class BrokerImpl implements Broker {
     @Override
     public void removeTopic(String topicId) {
         topics.remove(topicId);
+        System.out.println("Topic removed: " + topicId);
     }
 
     @Override
