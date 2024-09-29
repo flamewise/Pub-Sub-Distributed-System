@@ -94,10 +94,11 @@ public class ClientHandler extends Thread implements Subscriber {
                             } else {
                                 out.println("Usage: sub {topic_id}");
                             }
-                            break;
+                        break;
+                        
 
                         case "current":
-                            broker.listSubscriptions(out, subscriberId);
+                            broker.listSubscriptions(out, subscriberId);  // List current subscriptions for this subscriber
                             break;
 
                         case "unsub":
@@ -115,6 +116,34 @@ public class ClientHandler extends Thread implements Subscriber {
                             clientSocket.close();
                             return;  // Exit the while loop
 
+                        // Handle synchronization messages from other brokers
+                        case "synchronize_topic":
+                            if (parts.length == 3) {
+                                String topicId = parts[1];
+                                String topicName = parts[2];
+                                broker.createTopic(topicId, topicName);  // Ensure the broker creates the topic with both ID and name
+                                System.out.println("Synchronized topic " + topicName + " (ID: " + topicId + ")");
+                            }
+                            break;
+                    
+
+                        case "synchronize_sub":
+                            if (parts.length == 3) {
+                                String topicId = parts[1];
+                                String subscriberId = parts[2];
+                                broker.addRemoteSubscriber(topicId, subscriberId);  // Add remote subscriber to the topic
+                                System.out.println("Synchronized subscription for topic " + topicId + " from remote subscriber " + subscriberId);
+                            }
+                            break;
+
+                        case "synchronize_message":
+                            if (parts.length == 3) {
+                                String topicId = parts[1];
+                                String message = parts[2];
+                                broker.publishMessage(topicId, message);  // Synchronize and publish message
+                            }
+                            break;
+
                         default:
                             out.println("Unknown command. Please try again.");
                             break;
@@ -127,7 +156,6 @@ public class ClientHandler extends Thread implements Subscriber {
         } catch (IOException e) {
             System.err.println("Client disconnected abruptly: " + clientSocket.getInetAddress());
         } finally {
-            // Ensure the client socket is closed when the client disconnects
             try {
                 if (clientSocket != null && !clientSocket.isClosed()) {
                     clientSocket.close();

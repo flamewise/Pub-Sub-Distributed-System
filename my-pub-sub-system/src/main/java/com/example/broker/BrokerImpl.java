@@ -13,14 +13,17 @@ import java.util.concurrent.Executors;
 
 public class BrokerImpl implements Broker {
     private final ConcurrentHashMap<String, CopyOnWriteArrayList<Subscriber>> topics;
-    private final ConcurrentHashMap<String, String> topicNames; // New Map to store topicId and topicName
+    private final ConcurrentHashMap<String, String> topicNames; // Store both topicId and topicName
+    private final ConcurrentHashMap<String, CopyOnWriteArrayList<String>> remoteSubscribers; // Track remote subscribers
     private ServerSocket serverSocket;
-    private ExecutorService brokerConnectionPool = Executors.newCachedThreadPool(); // Pool for handling broker connections
+    private ExecutorService brokerConnectionPool = Executors.newCachedThreadPool();
+    private final CopyOnWriteArrayList<Socket> connectedBrokers = new CopyOnWriteArrayList<>();
 
     public BrokerImpl(int port) throws IOException {
         this.topics = new ConcurrentHashMap<>();
-        this.topicNames = new ConcurrentHashMap<>(); // Initialize map for topic names
-        this.serverSocket = new ServerSocket(port);  // Initialize the ServerSocket with the port number
+        this.topicNames = new ConcurrentHashMap<>();
+        this.remoteSubscribers = new ConcurrentHashMap<>();
+        this.serverSocket = new ServerSocket(port);
         System.out.println("Broker started on port: " + port);
     }
 
@@ -28,10 +31,9 @@ public class BrokerImpl implements Broker {
     public void start() {
         while (true) {
             try {
-                // Accept incoming connections and spawn ClientHandler threads
                 Socket clientSocket = serverSocket.accept();
                 System.out.println("Client connected: " + clientSocket.getInetAddress());
-                new ClientHandler(clientSocket, this).start();  // Create a new thread to handle the client
+                new ClientHandler(clientSocket, this).start();  // Handle client connection
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -42,22 +44,29 @@ public class BrokerImpl implements Broker {
     public void connectToOtherBroker(String brokerIP, int brokerPort) {
         brokerConnectionPool.submit(() -> {
             try {
-                Socket brokerSocket = new Socket(brokerIP, brokerPort);  // Establish connection with other broker
-                PrintWriter out = new PrintWriter(brokerSocket.getOutputStream(), true);
+                Socket brokerSocket = new Socket(brokerIP, brokerPort);
+                connectedBrokers.add(brokerSocket);
+                PrintWriter out = new PrintWriter(brokerSocket.getOutputStream(), true);  // Using 'out'
                 System.out.println("Connected to Broker at: " + brokerIP + ":" + brokerPort);
-                // You can add additional logic here to handle communication with the other broker
+                out.println("Connected to another broker.");
             } catch (IOException e) {
                 e.printStackTrace();
             }
         });
     }
 
-    // Updated createTopic method to handle both topicId and topicName
     @Override
     public void createTopic(String topicId, String topicName) {
-        topics.putIfAbsent(topicId, new CopyOnWriteArrayList<>());
-        topicNames.putIfAbsent(topicId, topicName);  // Store topicName with its ID
-        System.out.println("Topic created: " + topicName + " (ID: " + topicId + ")");
+        if (!topicNames.containsKey(topicId)) {
+            topics.putIfAbsent(topicId, new CopyOnWriteArrayList<>());
+            topicNames.putIfAbsent(topicId, topicName);
+            System.out.println("Topic created: " + topicName + " (ID: " + topicId + ")");
+    
+            // Synchronize topic creation with other brokers
+            synchronizeTopic(topicId, topicName);
+        } else {
+            System.out.println("Topic already exists: " + topicNames.get(topicId));
+        }
     }
 
     @Override
@@ -69,18 +78,49 @@ public class BrokerImpl implements Broker {
                     System.out.println("Delivering message to subscriber: " + subscriber.getSubscriberId());
                     subscriber.receiveMessage(topicId, message);  // Send the message to each subscriber
                 }
-            } else {
-                System.out.println("No subscribers for topic: " + topicNames.get(topicId)); // Use topicName
+            }
+
+            // Deliver message to remote subscribers (from other brokers)
+            if (remoteSubscribers.containsKey(topicId)) {
+                for (String remoteSubId : remoteSubscribers.get(topicId)) {
+                    System.out.println("Delivering message to remote subscriber: " + remoteSubId);
+                }
+            }
+
+            if (subscribers == null || subscribers.isEmpty()) {
+                System.out.println("No subscribers for topic: " + topicNames.get(topicId));
             }
         } else {
             System.out.println("Topic not found: " + topicId);
         }
+
+        // Synchronize message with other brokers
+        synchronizeMessage(topicId, message);
     }
 
     @Override
     public void addSubscriber(String topicId, Subscriber subscriber) {
-        topics.computeIfAbsent(topicId, k -> new CopyOnWriteArrayList<>()).add(subscriber);
-        System.out.println("Subscriber " + subscriber.getSubscriberId() + " added to topic: " + topicNames.get(topicId));
+        if (!topics.containsKey(topicId)) {
+            System.out.println("Topic does not exist locally, requesting topic metadata");
+            requestTopicFromOtherBrokers(topicId);
+        }
+
+        CopyOnWriteArrayList<Subscriber> subscribers = topics.computeIfAbsent(topicId, k -> new CopyOnWriteArrayList<>());
+
+        if (subscribers.contains(subscriber)) {
+            System.out.println("Subscriber " + subscriber.getSubscriberId() + " is already subscribed to topic: " + topicNames.get(topicId));
+        } else {
+            subscribers.add(subscriber);
+            System.out.println("Subscriber " + subscriber.getSubscriberId() + " added to topic: " + topicNames.get(topicId));
+
+            // Synchronize subscription with other brokers
+            synchronizeSubscription(topicId, subscriber.getSubscriberId());
+        }
+    }
+
+    public void addRemoteSubscriber(String topicId, String subscriberId) {
+        remoteSubscribers.computeIfAbsent(topicId, k -> new CopyOnWriteArrayList<>()).add(subscriberId);
+        System.out.println("Remote subscriber " + subscriberId + " added to topic: " + topicNames.get(topicId));
     }
 
     @Override
@@ -129,6 +169,60 @@ public class BrokerImpl implements Broker {
                 if (subscriber.getSubscriberId().equals(subscriberId)) {
                     out.println("Subscribed to: " + topicId + " (" + topicNames.get(topicId) + ")");
                 }
+            }
+        }
+    }
+
+    // Synchronize topic creation across brokers
+    @Override
+    public void synchronizeTopic(String topicId, String topicName) {
+        for (Socket brokerSocket : connectedBrokers) {
+            try {
+                PrintWriter out = new PrintWriter(brokerSocket.getOutputStream(), true);
+                out.println("synchronize_topic " + topicId + " " + topicName);
+                System.out.println("Synchronizing topic " + topicName + " (ID: " + topicId + ") with other brokers");
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    // Request topic metadata from other brokers
+    public void requestTopicFromOtherBrokers(String topicId) {
+        for (Socket brokerSocket : connectedBrokers) {
+            try {
+                PrintWriter out = new PrintWriter(brokerSocket.getOutputStream(), true);
+                out.println("request_topic " + topicId);
+                System.out.println("Requesting topic metadata for " + topicId + " from other brokers");
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    // Synchronize subscription across brokers
+    @Override
+    public void synchronizeSubscription(String topicId, String subscriberId) {
+        for (Socket brokerSocket : connectedBrokers) {
+            try {
+                PrintWriter out = new PrintWriter(brokerSocket.getOutputStream(), true);
+                out.println("synchronize_sub " + topicId + " " + subscriberId);
+                System.out.println("Synchronizing subscription of " + subscriberId + " for topic " + topicId);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    // Synchronize message propagation across brokers
+    public void synchronizeMessage(String topicId, String message) {
+        for (Socket brokerSocket : connectedBrokers) {
+            try {
+                PrintWriter out = new PrintWriter(brokerSocket.getOutputStream(), true);
+                out.println("synchronize_message " + topicId + " " + message);
+                System.out.println("Synchronizing message to connected brokers: " + message);
+            } catch (IOException e) {
+                e.printStackTrace();
             }
         }
     }

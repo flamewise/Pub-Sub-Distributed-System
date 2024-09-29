@@ -6,7 +6,6 @@ public interface Broker {
     void start();
     void connectToOtherBroker(String brokerIP, int brokerPort);
     
-    // Updated createTopic method to accept both topicId and topicName
     void createTopic(String topicId, String topicName);
     
     void publishMessage(String topicId, String message);
@@ -17,4 +16,12 @@ public interface Broker {
     void removeTopic(String topicId);
     void listAllTopics(PrintWriter out);
     void listSubscriptions(PrintWriter out, String subscriberId);
+
+    // New methods for synchronization
+    void synchronizeTopic(String topicId, String topicName);
+    void synchronizeSubscription(String topicId, String subscriberId);
+    void synchronizeMessage(String topicId, String message);
+
+    // New method to handle remote subscribers from other brokers
+    void addRemoteSubscriber(String topicId, String subscriberId);
 }

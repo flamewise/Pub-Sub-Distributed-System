@@ -10,13 +10,15 @@ public class SubscriberImpl implements Subscriber {
     private final Socket socket;
     private final PrintWriter out;
     private final BufferedReader in;
-    private final String id;
+    private final String subscriberId;
 
-    public SubscriberImpl(String host, int port, String id) throws IOException {
+    // Constructor that establishes a connection to the broker
+    public SubscriberImpl(String host, int port, String subscriberId) throws IOException {
         this.socket = new Socket(host, port);  // Connect to the broker
-        this.out = new PrintWriter(socket.getOutputStream(), true);  // Set up the output stream for sending commands
-        this.in = new BufferedReader(new InputStreamReader(socket.getInputStream()));  // Set up the input stream for receiving messages
-        this.id = id;
+        this.out = new PrintWriter(socket.getOutputStream(), true);  // Output stream to send commands
+        this.in = new BufferedReader(new InputStreamReader(socket.getInputStream()));  // Input stream to receive responses
+        this.subscriberId = subscriberId;
+
         System.out.println("Connected to broker at " + host + ":" + port);
 
         // Start a thread to listen for incoming messages from the broker
@@ -24,7 +26,7 @@ public class SubscriberImpl implements Subscriber {
             try {
                 String messageFromBroker;
                 while ((messageFromBroker = in.readLine()) != null) {
-                    System.out.println(messageFromBroker);  // Display message received from broker
+                    System.out.println("Broker: " + messageFromBroker);  // Display message received from the broker
                 }
             } catch (IOException e) {
                 System.err.println("Connection closed by broker.");
@@ -40,8 +42,7 @@ public class SubscriberImpl implements Subscriber {
 
     @Override
     public void receiveMessage(String topicName, String message) {
-        // This method won't be called directly on the subscriber side.
-        // Instead, the subscriber receives messages from the broker via the input stream (handled in the thread).
+        // This method is not directly used by the subscriber in this case
         System.out.println("Received message on topic " + topicName + ": " + message);
     }
 
@@ -53,6 +54,6 @@ public class SubscriberImpl implements Subscriber {
 
     @Override
     public String getSubscriberId() {
-        return id;
+        return subscriberId;
     }
 }
