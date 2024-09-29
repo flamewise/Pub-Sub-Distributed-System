@@ -1,6 +1,6 @@
 package com.example.broker;
 
-import com.example.subscriber.Subscriber;
+import com.example.subscriber.SubscriberImpl;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -8,7 +8,7 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
 
-public class ClientHandler extends Thread implements Subscriber {
+public class ClientHandler extends Thread {
     private Socket clientSocket;
     private Broker broker;
     private String subscriberId;
@@ -89,13 +89,13 @@ public class ClientHandler extends Thread implements Subscriber {
                         case "sub":
                             if (parts.length == 2) {
                                 String topicId = parts[1];
-                                broker.addSubscriber(topicId, this);
+                                SubscriberImpl subscriber = new SubscriberImpl(subscriberId, out);  // Create a new subscriber instance
+                                broker.addSubscriber(topicId, subscriber);  // Add the subscriber to the broker
                                 out.println("Subscribed to: " + topicId);
                             } else {
                                 out.println("Usage: sub {topic_id}");
                             }
-                        break;
-                        
+                            break;
 
                         case "current":
                             broker.listSubscriptions(out, subscriberId);  // List current subscriptions for this subscriber
@@ -125,13 +125,12 @@ public class ClientHandler extends Thread implements Subscriber {
                                 System.out.println("Synchronized topic " + topicName + " (ID: " + topicId + ")");
                             }
                             break;
-                    
 
                         case "synchronize_sub":
                             if (parts.length == 3) {
                                 String topicId = parts[1];
                                 String subscriberId = parts[2];
-                                broker.addRemoteSubscriber(topicId, subscriberId);  // Add remote subscriber to the topic
+                                broker.addSubscriber(topicId, new SubscriberImpl(subscriberId, out));  // Add subscriber on other brokers
                                 System.out.println("Synchronized subscription for topic " + topicId + " from remote subscriber " + subscriberId);
                             }
                             break;
@@ -140,7 +139,7 @@ public class ClientHandler extends Thread implements Subscriber {
                             if (parts.length == 3) {
                                 String topicId = parts[1];
                                 String message = parts[2];
-                                broker.publishMessage(topicId, message);  // Synchronize and publish message
+                                broker.publishMessage(topicId, message);  // Synchronize and publish message to local subscribers
                             }
                             break;
 
@@ -164,27 +163,5 @@ public class ClientHandler extends Thread implements Subscriber {
                 e.printStackTrace();
             }
         }
-    }
-
-    // Subscriber implementation methods
-    @Override
-    public void receiveMessage(String topicName, String message) {
-        out.println("Received message on topic " + topicName + ": " + message); // Send message to client
-        System.out.println("Delivered message on topic " + topicName + " to subscriber: " + subscriberId);
-    }
-
-    @Override
-    public String getSubscriberId() {
-        return subscriberId;
-    }
-
-    @Override
-    public void subscribe(String topicName) {
-        broker.addSubscriber(topicName, this);
-    }
-
-    @Override
-    public void unsubscribe(String topicName) {
-        broker.unsubscribe(topicName, subscriberId);
     }
 }

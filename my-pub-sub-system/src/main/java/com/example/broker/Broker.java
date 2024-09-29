@@ -17,11 +17,11 @@ public interface Broker {
     void listAllTopics(PrintWriter out);
     void listSubscriptions(PrintWriter out, String subscriberId);
 
-    // New methods for synchronization
+    // New methods for synchronization across brokers
     void synchronizeTopic(String topicId, String topicName);
     void synchronizeSubscription(String topicId, String subscriberId);
     void synchronizeMessage(String topicId, String message);
 
-    // New method to handle remote subscribers from other brokers
-    void addRemoteSubscriber(String topicId, String subscriberId);
+
+    void requestTopicFromOtherBrokers(String topicId);  // Added this method here
 }

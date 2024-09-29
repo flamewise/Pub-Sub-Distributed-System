@@ -14,7 +14,6 @@ import java.util.concurrent.Executors;
 public class BrokerImpl implements Broker {
     private final ConcurrentHashMap<String, CopyOnWriteArrayList<Subscriber>> topics;
     private final ConcurrentHashMap<String, String> topicNames; // Store both topicId and topicName
-    private final ConcurrentHashMap<String, CopyOnWriteArrayList<String>> remoteSubscribers; // Track remote subscribers
     private ServerSocket serverSocket;
     private ExecutorService brokerConnectionPool = Executors.newCachedThreadPool();
     private final CopyOnWriteArrayList<Socket> connectedBrokers = new CopyOnWriteArrayList<>();
@@ -22,7 +21,6 @@ public class BrokerImpl implements Broker {
     public BrokerImpl(int port) throws IOException {
         this.topics = new ConcurrentHashMap<>();
         this.topicNames = new ConcurrentHashMap<>();
-        this.remoteSubscribers = new ConcurrentHashMap<>();
         this.serverSocket = new ServerSocket(port);
         System.out.println("Broker started on port: " + port);
     }
@@ -46,7 +44,7 @@ public class BrokerImpl implements Broker {
             try {
                 Socket brokerSocket = new Socket(brokerIP, brokerPort);
                 connectedBrokers.add(brokerSocket);
-                PrintWriter out = new PrintWriter(brokerSocket.getOutputStream(), true);  // Using 'out'
+                PrintWriter out = new PrintWriter(brokerSocket.getOutputStream(), true);  
                 System.out.println("Connected to Broker at: " + brokerIP + ":" + brokerPort);
                 out.println("Connected to another broker.");
             } catch (IOException e) {
@@ -56,7 +54,7 @@ public class BrokerImpl implements Broker {
     }
 
     @Override
-    public void createTopic(String topicId, String topicName) {
+    public synchronized void createTopic(String topicId, String topicName) {
         if (!topicNames.containsKey(topicId)) {
             topics.putIfAbsent(topicId, new CopyOnWriteArrayList<>());
             topicNames.putIfAbsent(topicId, topicName);
@@ -70,36 +68,29 @@ public class BrokerImpl implements Broker {
     }
 
     @Override
-    public void publishMessage(String topicId, String message) {
+    public synchronized void publishMessage(String topicId, String message) {
+        // Deliver message to local subscribers
         if (topics.containsKey(topicId)) {
             CopyOnWriteArrayList<Subscriber> subscribers = topics.get(topicId);
             if (subscribers != null && !subscribers.isEmpty()) {
                 for (Subscriber subscriber : subscribers) {
                     System.out.println("Delivering message to subscriber: " + subscriber.getSubscriberId());
-                    subscriber.receiveMessage(topicId, message);  // Send the message to each subscriber
+                    subscriber.receiveMessage(topicId, message);  // Send the message to each local subscriber
                 }
             }
-
-            // Deliver message to remote subscribers (from other brokers)
-            if (remoteSubscribers.containsKey(topicId)) {
-                for (String remoteSubId : remoteSubscribers.get(topicId)) {
-                    System.out.println("Delivering message to remote subscriber: " + remoteSubId);
-                }
-            }
-
             if (subscribers == null || subscribers.isEmpty()) {
-                System.out.println("No subscribers for topic: " + topicNames.get(topicId));
+                System.out.println("No local subscribers for topic: " + topicNames.get(topicId));
             }
         } else {
             System.out.println("Topic not found: " + topicId);
         }
 
-        // Synchronize message with other brokers
+        // Now, forward the message to other brokers for their local subscribers
         synchronizeMessage(topicId, message);
     }
 
     @Override
-    public void addSubscriber(String topicId, Subscriber subscriber) {
+    public synchronized void addSubscriber(String topicId, Subscriber subscriber) {
         if (!topics.containsKey(topicId)) {
             System.out.println("Topic does not exist locally, requesting topic metadata");
             requestTopicFromOtherBrokers(topicId);
@@ -118,13 +109,8 @@ public class BrokerImpl implements Broker {
         }
     }
 
-    public void addRemoteSubscriber(String topicId, String subscriberId) {
-        remoteSubscribers.computeIfAbsent(topicId, k -> new CopyOnWriteArrayList<>()).add(subscriberId);
-        System.out.println("Remote subscriber " + subscriberId + " added to topic: " + topicNames.get(topicId));
-    }
-
     @Override
-    public void removeSubscriber(String topicId, Subscriber subscriber) {
+    public synchronized void removeSubscriber(String topicId, Subscriber subscriber) {
         CopyOnWriteArrayList<Subscriber> subscribers = topics.get(topicId);
         if (subscribers != null) {
             subscribers.remove(subscriber);
@@ -133,7 +119,7 @@ public class BrokerImpl implements Broker {
     }
 
     @Override
-    public void unsubscribe(String topicId, String subscriberId) {
+    public synchronized void unsubscribe(String topicId, String subscriberId) {
         CopyOnWriteArrayList<Subscriber> subscribers = topics.get(topicId);
         if (subscribers != null) {
             subscribers.removeIf(sub -> sub.getSubscriberId().equals(subscriberId));
@@ -148,7 +134,7 @@ public class BrokerImpl implements Broker {
     }
 
     @Override
-    public void removeTopic(String topicId) {
+    public synchronized void removeTopic(String topicId) {
         topics.remove(topicId);
         topicNames.remove(topicId);
         System.out.println("Topic removed: " + topicId);
@@ -173,9 +159,8 @@ public class BrokerImpl implements Broker {
         }
     }
 
-    // Synchronize topic creation across brokers
     @Override
-    public void synchronizeTopic(String topicId, String topicName) {
+    public synchronized void synchronizeTopic(String topicId, String topicName) {
         for (Socket brokerSocket : connectedBrokers) {
             try {
                 PrintWriter out = new PrintWriter(brokerSocket.getOutputStream(), true);
@@ -187,8 +172,8 @@ public class BrokerImpl implements Broker {
         }
     }
 
-    // Request topic metadata from other brokers
-    public void requestTopicFromOtherBrokers(String topicId) {
+    @Override
+    public synchronized void requestTopicFromOtherBrokers(String topicId) {
         for (Socket brokerSocket : connectedBrokers) {
             try {
                 PrintWriter out = new PrintWriter(brokerSocket.getOutputStream(), true);
@@ -200,9 +185,8 @@ public class BrokerImpl implements Broker {
         }
     }
 
-    // Synchronize subscription across brokers
     @Override
-    public void synchronizeSubscription(String topicId, String subscriberId) {
+    public synchronized void synchronizeSubscription(String topicId, String subscriberId) {
         for (Socket brokerSocket : connectedBrokers) {
             try {
                 PrintWriter out = new PrintWriter(brokerSocket.getOutputStream(), true);
@@ -214,8 +198,9 @@ public class BrokerImpl implements Broker {
         }
     }
 
-    // Synchronize message propagation across brokers
-    public void synchronizeMessage(String topicId, String message) {
+    @Override
+    public synchronized void synchronizeMessage(String topicId, String message) {
+        //System.out.println(brokerSo); check if brokerSocket is empty
         for (Socket brokerSocket : connectedBrokers) {
             try {
                 PrintWriter out = new PrintWriter(brokerSocket.getOutputStream(), true);
