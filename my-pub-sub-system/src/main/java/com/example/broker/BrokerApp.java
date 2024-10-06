@@ -23,15 +23,26 @@ public class BrokerApp {
             }
 
             // Start the broker
-            new Thread(() -> broker.start()).start();
+            new Thread(() -> {
+                broker.start();
+            }).start();
 
             // Connect to other brokers if IP:Port are provided
-            for (String otherBroker : otherBrokers) {
-                String[] brokerDetails = otherBroker.split(":");
-                String brokerIP = brokerDetails[0];
-                int brokerPort = Integer.parseInt(brokerDetails[1]);
+            if (!otherBrokers.isEmpty()) {
+                System.out.println("Connecting to other brokers...");
+                for (String otherBroker : otherBrokers) {
+                    String[] brokerDetails = otherBroker.split(":");
+                    if (brokerDetails.length == 2) {
+                        String brokerIP = brokerDetails[0];
+                        int brokerPort = Integer.parseInt(brokerDetails[1]);
 
-                broker.connectToOtherBroker(brokerIP, brokerPort);  // Method to handle connection to other brokers
+                        broker.connectToBroker(brokerIP, brokerPort);  // Connect to the specified broker
+                    } else {
+                        System.out.println("Invalid broker address: " + otherBroker);
+                    }
+                }
+            } else {
+                System.out.println("No other brokers to connect to.");
             }
 
         } catch (Exception e) {
