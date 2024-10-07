@@ -53,7 +53,6 @@ public class Broker {
         }
     }
 
-
     public void connectToBroker(String brokerIP, int brokerPort) {
         String brokerAddress = brokerIP + ":" + brokerPort;
 
@@ -64,14 +63,18 @@ public class Broker {
 
         connectionPool.submit(() -> {
             try {
+                // Connect to the broker
                 Socket brokerSocket = new Socket(brokerIP, brokerPort);
                 connectedBrokers.add(brokerSocket);
                 connectedBrokerAddresses.add(brokerAddress);
                 PrintWriter out = new PrintWriter(brokerSocket.getOutputStream(), true);
                 System.out.println("Connected to Broker at: " + brokerIP + ":" + brokerPort);
 
+                // Notify the connected broker of the new connection and request a reverse connection
                 out.println("broker_connect " + serverSocket.getInetAddress().getHostAddress() + " " + serverSocket.getLocalPort());
                 System.out.println("Sent broker_connect message to existing broker at: " + brokerIP + ":" + brokerPort);
+
+                // Here, the existing broker will establish a reverse connection back to this broker
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -118,22 +121,6 @@ public class Broker {
         }
     }
 
-    public void publishMessageToLocalSubscribers(String topicId, String message) {
-        if (topicSubscribers.containsKey(topicId)) {
-            ConcurrentHashMap<String, Subscriber> subscribers = topicSubscribers.get(topicId);
-
-            if (subscribers != null && !subscribers.isEmpty()) {
-                for (Subscriber subscriber : subscribers.values()) {
-                    subscriber.receiveMessage(topicId, message);
-                }
-            } else {
-                System.out.println("No local subscribers for topic: " + topicId);
-            }
-        } else {
-            System.out.println("Topic not found: " + topicId);
-        }
-    }
-
     public void addSubscriber(String topicId, Subscriber subscriber, String username) {
         ConcurrentHashMap<String, Subscriber> subscribers = topicSubscribers.computeIfAbsent(topicId, k -> new ConcurrentHashMap<>());
         if (!subscribers.containsKey(username)) {
@@ -173,6 +160,7 @@ public class Broker {
     }
 
     public void synchronizeTopic(String topicId, String topicName) {
+        System.out.println(connectedBrokers);
         for (Socket brokerSocket : connectedBrokers) {
             try {
                 PrintWriter out = new PrintWriter(brokerSocket.getOutputStream(), true);

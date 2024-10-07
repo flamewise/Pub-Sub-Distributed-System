@@ -73,6 +73,18 @@ public class ClientHandler extends Thread {
                 case "broker_connect":
                     handleBrokerConnect(parts);
                     break;
+                case "synchronize_topic":
+                    handleSynchronizeTopic(parts);
+                    break;
+                case "synchronize_message":
+                    handleSynchronizeMessage(parts);
+                    break;
+                case "synchronize_sub":
+                    handleSynchronizeSubscription(parts);
+                    break;
+                case "request_topic":
+                    handleRequestTopic(parts);
+                    break;
                 case "exit":
                     handleExit();
                     break;
@@ -137,12 +149,56 @@ public class ClientHandler extends Thread {
         if (parts.length == 3) {
             String brokerIP = parts[1];
             int brokerPort = Integer.parseInt(parts[2]);
-
+    
             // Establish reverse connection to the broker
             broker.connectToBroker(brokerIP, brokerPort);
             System.out.println("Received broker_connect from " + brokerIP + ":" + brokerPort);
         } else {
             out.println("Invalid broker_connect message.");
+        }
+    }
+    
+
+    private void handleSynchronizeTopic(String[] parts) {
+        if (parts.length == 3) {
+            String topicId = parts[1];
+            String topicName = parts[2];
+            broker.createTopic(username, topicId, topicName);  // Sync with this broker
+            out.println("Synchronized topic: " + topicName + " (ID: " + topicId + ")");
+        } else {
+            out.println("Invalid synchronize_topic message.");
+        }
+    }
+
+    private void handleSynchronizeMessage(String[] parts) {
+        if (parts.length == 3) {
+            String topicId = parts[1];
+            String message = parts[2];
+            broker.publishMessage(username, topicId, message);  // Sync message to this broker's subscribers
+            out.println("Synchronized message to topic: " + topicId);
+        } else {
+            out.println("Invalid synchronize_message message.");
+        }
+    }
+
+    private void handleSynchronizeSubscription(String[] parts) {
+        if (parts.length == 3) {
+            String topicId = parts[1];
+            String subscriberId = parts[2];
+            Subscriber subscriber = new Subscriber(subscriberId, out);  // Dummy subscriber to synchronize
+            broker.addSubscriber(topicId, subscriber, subscriberId);
+            out.println("Synchronized subscription for subscriber: " + subscriberId + " to topic: " + topicId);
+        } else {
+            out.println("Invalid synchronize_sub message.");
+        }
+    }
+
+    private void handleRequestTopic(String[] parts) {
+        if (parts.length == 2) {
+            String topicId = parts[1];
+            broker.requestTopicFromBrokers(topicId);  // Request the topic from other brokers
+        } else {
+            out.println("Invalid request_topic message.");
         }
     }
 
