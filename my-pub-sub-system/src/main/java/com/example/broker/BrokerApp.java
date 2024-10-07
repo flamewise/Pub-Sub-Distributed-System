@@ -6,26 +6,24 @@ import java.util.List;
 public class BrokerApp {
     public static void main(String[] args) {
         if (args.length < 1) {
-            System.out.println("Usage: java -jar broker.jar <port> [<otherBrokerIP:port>...]");
+            System.out.println("Usage: java -jar broker.jar <port> [-b <brokerIP:port> ...]");
             return;
         }
 
         try {
             int port = Integer.parseInt(args[0]);
-            Broker broker = new BrokerImpl(port);
+            Broker broker = new Broker(port);
 
-            // Handle additional broker connections if provided
+            // Handle additional broker connections if provided using the "-b" flag
             List<String> otherBrokers = new ArrayList<>();
-            if (args.length > 1) {
-                for (int i = 1; i < args.length; i++) {
+            if (args.length > 2 && "-b".equals(args[1])) {
+                for (int i = 2; i < args.length; i++) {
                     otherBrokers.add(args[i]);
                 }
             }
 
-            // Start the broker
-            new Thread(() -> {
-                broker.start();
-            }).start();
+            // Start the broker in a new thread
+            new Thread(broker::start).start();
 
             // Connect to other brokers if IP:Port are provided
             if (!otherBrokers.isEmpty()) {
@@ -45,6 +43,8 @@ public class BrokerApp {
                 System.out.println("No other brokers to connect to.");
             }
 
+        } catch (NumberFormatException e) {
+            System.out.println("Error: Port must be a valid number.");
         } catch (Exception e) {
             e.printStackTrace();
         }

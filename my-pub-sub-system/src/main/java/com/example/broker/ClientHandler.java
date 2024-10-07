@@ -1,6 +1,6 @@
 package com.example.broker;
 
-import com.example.subscriber.SubscriberImpl;
+import com.example.subscriber.Subscriber;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -11,13 +11,13 @@ import java.net.Socket;
 public class ClientHandler extends Thread {
     private final Socket clientSocket;
     private final Broker broker;
-    private final String subscriberId;
+    private final String username;  // This will be captured from the first line sent by the client
     private PrintWriter out;
 
-    public ClientHandler(Socket socket, Broker broker) {
+    public ClientHandler(Socket socket, Broker broker, String username) {
         this.clientSocket = socket;
         this.broker = broker;
-        this.subscriberId = "client_" + clientSocket.getPort();  // Unique ID for each subscriber
+        this.username = username;  // Username is passed during connection (from the first message)
     }
 
     @Override
@@ -38,8 +38,7 @@ public class ClientHandler extends Thread {
     private void handleClientCommands(BufferedReader in) throws IOException {
         String inputLine;
         while ((inputLine = in.readLine()) != null) {
-            System.out.println("Received: " + inputLine);
-            String[] parts = inputLine.split(" ", 3);
+            String[] parts = inputLine.split(" ", 3);  // Now expects commands with topicId and message as needed
 
             if (parts.length > 0) {
                 String command = parts[0];
@@ -53,69 +52,41 @@ public class ClientHandler extends Thread {
     private void handleCommand(String command, String[] parts) {
         try {
             switch (command) {
-                case "broker_connect": // Add this case to handle incoming broker connections
-                    handleBrokerConnect(parts);
-                    break;
                 case "create":
                     handleCreate(parts);
                     break;
                 case "publish":
                     handlePublish(parts);
                     break;
-                case "show":
-                    handleShow(parts);
-                    break;
-                case "delete":
-                    handleDelete(parts);
-                    break;
-                case "list":
-                    handleList(parts);
-                    break;
                 case "sub":
                     handleSubscribe(parts);
-                    break;
-                case "current":
-                    handleCurrentSubscriptions();
                     break;
                 case "unsub":
                     handleUnsubscribe(parts);
                     break;
+                case "list":
+                    handleList(parts);
+                    break;
+                case "current":
+                    handleCurrent(parts);
+                    break;
+                case "broker_connect":
+                    handleBrokerConnect(parts);
+                    break;
                 case "exit":
                     handleExit();
                     break;
-                case "synchronize_message":
-                    handleSynchronizeMessage(parts);
-                    break;
                 default:
-                    out.println("Unknown command. Please try again.");
+                    out.println("Unknown command.");
             }
         } catch (Exception e) {
             out.println("Error processing command: " + e.getMessage());
         }
     }
 
-    // Handle broker connections by reverse connecting back to the initiating broker
-    private void handleBrokerConnect(String[] parts) {
-        if (parts.length == 3) {
-            String brokerIP = parts[1];
-            int brokerPort = Integer.parseInt(parts[2]);
-            
-            // Check if this broker is already connected
-            if (!broker.getConnectedBrokerAddresses().contains(brokerIP + ":" + brokerPort)) {
-                // If not connected, establish a connection back to the broker
-                broker.connectToBroker(brokerIP, brokerPort);
-                System.out.println("Connecting back to broker at " + brokerIP + ":" + brokerPort);
-            } else {
-                System.out.println("Already connected to broker at " + brokerIP + ":" + brokerPort);
-            }
-        } else {
-            System.out.println("Invalid broker connection message.");
-        }
-    }
-
     private void handleCreate(String[] parts) {
         if (parts.length == 3) {
-            broker.createTopic(parts[1], parts[2]);
+            broker.createTopic(username, parts[1], parts[2]);  // Username is already captured
             out.println("Topic created: " + parts[2] + " (ID: " + parts[1] + ")");
         } else {
             out.println("Usage: create {topic_id} {topic_name}");
@@ -124,28 +95,29 @@ public class ClientHandler extends Thread {
 
     private void handlePublish(String[] parts) {
         if (parts.length == 3) {
-            broker.publishMessage(parts[1], parts[2]);
+            broker.publishMessage(username, parts[1], parts[2]);  // Username is already captured
             out.println("Message published to topic: " + parts[1]);
         } else {
             out.println("Usage: publish {topic_id} {message}");
         }
     }
 
-    private void handleShow(String[] parts) {
+    private void handleSubscribe(String[] parts) {
         if (parts.length == 2) {
-            int count = broker.getSubscriberCount(parts[1]);
-            out.println("Topic: " + parts[1] + " has " + count + " subscribers.");
+            Subscriber subscriber = new Subscriber(username, out);
+            broker.addSubscriber(parts[1], subscriber, username);  // Username is already captured
+            out.println(username + " subscribed to topic: " + parts[1]);
         } else {
-            out.println("Usage: show {topic_id}");
+            out.println("Usage: sub {topic_id}");
         }
     }
 
-    private void handleDelete(String[] parts) {
+    private void handleUnsubscribe(String[] parts) {
         if (parts.length == 2) {
-            broker.removeTopic(parts[1]);
-            out.println("Topic deleted: " + parts[1]);
+            broker.unsubscribe(parts[1], username);  // Username is already captured
+            out.println(username + " unsubscribed from topic: " + parts[1]);
         } else {
-            out.println("Usage: delete {topic_id}");
+            out.println("Usage: unsub {topic_id}");
         }
     }
 
@@ -157,36 +129,20 @@ public class ClientHandler extends Thread {
         }
     }
 
-    private void handleSubscribe(String[] parts) {
-        if (parts.length == 2) {
-            SubscriberImpl subscriber = new SubscriberImpl(subscriberId, out);
-            broker.addSubscriber(parts[1], subscriber);
-            out.println("Subscribed to topic: " + parts[1]);
-        } else {
-            out.println("Usage: sub {topic_id}");
-        }
+    private void handleCurrent(String[] parts) {
+        broker.listSubscriptions(out, username);  // Use the username captured at connection
     }
 
-    private void handleCurrentSubscriptions() {
-        broker.listSubscriptions(out, subscriberId);
-    }
-
-    private void handleUnsubscribe(String[] parts) {
-        if (parts.length == 2) {
-            broker.unsubscribe(parts[1], subscriberId);
-            out.println("Unsubscribed from topic: " + parts[1]);
-        } else {
-            out.println("Usage: unsub {topic_id}");
-        }
-    }
-
-    private void handleSynchronizeMessage(String[] parts) {
+    private void handleBrokerConnect(String[] parts) {
         if (parts.length == 3) {
-            String topicId = parts[1];
-            String message = parts[2];
-            
-            // Deliver the message to local subscribers on this broker
-            broker.publishMessageToLocalSubscribers(topicId, message);  // Only send to local subscribers
+            String brokerIP = parts[1];
+            int brokerPort = Integer.parseInt(parts[2]);
+
+            // Establish reverse connection to the broker
+            broker.connectToBroker(brokerIP, brokerPort);
+            System.out.println("Received broker_connect from " + brokerIP + ":" + brokerPort);
+        } else {
+            out.println("Invalid broker_connect message.");
         }
     }
 

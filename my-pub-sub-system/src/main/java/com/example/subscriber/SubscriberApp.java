@@ -8,19 +8,25 @@ import java.net.Socket;
 public class SubscriberApp {
     public static void main(String[] args) {
         if (args.length != 3) {
-            System.out.println("Usage: java -jar subscriber.jar <host> <port> <subscriberId>");
+            System.out.println("Usage: java -jar subscriber.jar <host> <port> <username>");
             return;
         }
 
         try {
             String host = args[0];
             int port = Integer.parseInt(args[1]);
-            String subscriberId = args[2];
+            String username = args[2];
 
             // Establish a connection to the broker
             Socket socket = new Socket(host, port);
             PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
             BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+
+            // Send the username to the broker after connection
+            out.println(username);
+
+            // Create Subscriber object
+            Subscriber subscriber = new Subscriber(username, out);
 
             // Start a thread to listen for messages from the broker
             new Thread(() -> {
@@ -45,7 +51,7 @@ public class SubscriberApp {
                 switch (parts[0]) {
                     case "sub":
                         if (parts.length == 2) {
-                            out.println("sub " + parts[1]);  // Subscribe to a topic
+                            subscriber.subscribe(parts[1]);  // Subscribe to a topic
                             System.out.println("Subscribed to topic: " + parts[1]);
                         } else {
                             System.out.println("Usage: sub <topic_id>");
@@ -54,7 +60,7 @@ public class SubscriberApp {
 
                     case "unsub":
                         if (parts.length == 2) {
-                            out.println("unsub " + parts[1]);  // Unsubscribe from a topic
+                            subscriber.unsubscribe(parts[1]);  // Unsubscribe from a topic
                             System.out.println("Unsubscribed from topic: " + parts[1]);
                         } else {
                             System.out.println("Usage: unsub <topic_id>");

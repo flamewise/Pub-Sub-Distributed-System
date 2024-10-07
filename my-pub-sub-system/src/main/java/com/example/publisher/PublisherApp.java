@@ -5,17 +5,20 @@ import java.io.InputStreamReader;
 
 public class PublisherApp {
     public static void main(String[] args) {
-        if (args.length != 2) {
-            System.out.println("Usage: java -jar publisher.jar <host> <port>");
+        if (args.length != 3) {
+            System.out.println("Usage: java -jar publisher.jar <username> <broker_ip> <broker_port>");
             return;
         }
+
         try {
-            String host = args[0];
-            int port = Integer.parseInt(args[1]);
-            Publisher publisher = new PublisherImpl(host, port);
+            String username = args[0];
+            String host = args[1];
+            int port = Integer.parseInt(args[2]);
+            Publisher publisher = new Publisher(host, port, username);
 
             BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
             String input;
+            System.out.println("Connected to broker at " + host + ":" + port + " as " + username);
             System.out.println("Please select a command: create, publish, show, delete.");
             System.out.println("1. create {topic_id} {topic_name}  #create a new topic");
             System.out.println("2. publish {topic_id} {message}  #publish a message to an existing topic");
@@ -30,7 +33,8 @@ public class PublisherApp {
                         if (parts.length == 3) {
                             String topicId = parts[1];
                             String topicName = parts[2];
-                            publisher.createTopic(topicId, topicName);
+                            publisher.createTopic(topicId, topicName);  // Send topicId, and topicName
+                            System.out.println(username + " created topic: " + topicName + " (ID: " + topicId + ")");
                         } else {
                             System.out.println("Usage: create {topic_id} {topic_name}");
                         }
@@ -40,7 +44,8 @@ public class PublisherApp {
                         if (parts.length == 3) {
                             String topicId = parts[1];
                             String message = parts[2];
-                            publisher.publishMessage(topicId, message);
+                            publisher.publishMessage(topicId, message);  // Send topicId, and message
+                            System.out.println(username + " published message to topic: " + topicId);
                         } else {
                             System.out.println("Usage: publish {topic_id} {message}");
                         }
@@ -59,6 +64,7 @@ public class PublisherApp {
                         if (parts.length == 2) {
                             String topicId = parts[1];
                             publisher.deleteTopic(topicId);
+                            System.out.println(username + " deleted topic: " + topicId);
                         } else {
                             System.out.println("Usage: delete {topic_id}");
                         }
