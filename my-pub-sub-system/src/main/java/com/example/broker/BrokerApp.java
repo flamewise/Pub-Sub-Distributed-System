@@ -1,9 +1,5 @@
 package com.example.broker;
 
-import com.example.directory.DirectoryServiceClient;
-import java.util.Set;
-import java.util.stream.Collectors;
-
 public class BrokerApp {
     public static void main(String[] args) {
         if (args.length < 2) {
@@ -13,24 +9,14 @@ public class BrokerApp {
 
         try {
             int port = Integer.parseInt(args[0]);
-            String directoryServiceAddress = args[1];  // Directory service address
+            String directoryServiceAddress = args[1];
 
-            Broker broker = new Broker(port);
+            // Create a new Broker instance with the port and directory service address
+            Broker broker = new Broker(port, directoryServiceAddress);
 
-            // Register the broker with the Directory Service and retrieve the active brokers
-            broker.registerWithDirectoryServiceAndConnect(directoryServiceAddress);
-
-            // Use the DirectoryServiceClient to retrieve active brokers
-            DirectoryServiceClient directoryServiceClient = new DirectoryServiceClient(directoryServiceAddress);
-            Set<String> activeBrokers = directoryServiceClient.getActiveBrokers();
-
-            if (!activeBrokers.isEmpty()) {
-                System.out.println("Connecting to active brokers...");
-                broker.connectToOtherBrokers(activeBrokers.stream().collect(Collectors.toList()));
-            }
-
-            // Start the broker in a new thread
-            new Thread(broker::start).start();
+            // Start the broker in a new thread using a Runnable
+            Thread brokerThread = new Thread(() -> broker.start());
+            brokerThread.start();
 
         } catch (NumberFormatException e) {
             System.out.println("Error: Port must be a valid number.");
