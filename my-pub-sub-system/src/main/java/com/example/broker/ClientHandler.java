@@ -102,9 +102,6 @@ public class ClientHandler extends Thread {
 
     private void handle_broker_commands(String command, String[] parts) {
         switch (command) {
-            case "broker_connect":
-                handle_broker_connect(parts);
-                break;
             case "synchronize_topic":
                 handle_synchronize_topic(parts);
                 break;
@@ -162,27 +159,6 @@ public class ClientHandler extends Thread {
     private void handle_current(String[] parts) {
         broker.listSubscriptions(out, username);
     }
-
-    private void handle_broker_connect(String[] parts) {
-        if (parts.length == 2) {  // Now expecting "username connection_type"
-            String brokerAddress = parts[0];  // "username" now contains broker's IP and port, e.g., "localhost:12345"
-            String[] addressParts = brokerAddress.split(":");
-    
-            if (addressParts.length == 2) {
-                String broker_ip = addressParts[0];  // Extract the IP
-                int broker_port = Integer.parseInt(addressParts[1]);  // Extract the port
-    
-                // Establish reverse connection to the broker
-                broker.connectToBroker(broker_ip, broker_port);
-                System.out.println("Received broker_connect from " + broker_ip + ":" + broker_port);
-            } else {
-                out.println("Invalid broker address format.");
-            }
-        } else {
-            out.println("Invalid broker_connect message.");
-        }
-    }
-    
 
     private void handle_synchronize_topic(String[] parts) {
         if (parts.length == 3) {

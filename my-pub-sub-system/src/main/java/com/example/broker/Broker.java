@@ -2,18 +2,17 @@ package com.example.broker;
 
 import com.example.subscriber.Subscriber;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
 import java.io.PrintWriter;
+import java.net.ServerSocket;
+import java.net.Socket;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.net.ServerSocket;
-import java.net.Socket;
-import java.net.SocketAddress;
 
 public class Broker {
     private final ConcurrentHashMap<String, ConcurrentHashMap<String, Subscriber>> topicSubscribers; // topicId -> (username -> Subscriber)
@@ -41,20 +40,20 @@ public class Broker {
             try {
                 Socket clientSocket = serverSocket.accept();
                 BufferedReader in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
-    
+
                 // Read the first line to capture both username and connection type
-                String inputLine = in.readLine();  // Expecting something like "localhost:12345 broker"
+                String inputLine = in.readLine();  // Expecting something like "brokerlocalhost:12345 broker"
                 String[] parts = inputLine.split(" ", 2);  // Split into two parts: username and connection type
-    
+
                 if (parts.length == 2) {
                     String username = parts[0];  // First part is username (e.g., "localhost:12345")
                     String connection_type = parts[1];  // Second part is connection type (e.g., "broker")
-    
+
                     System.out.println("Client connected: " + clientSocket.getInetAddress() + " with username: " + username + " with connection type " + connection_type);
-    
+
                     // Create a new ClientHandler and pass the username and connection type
                     connectionPool.submit(new ClientHandler(clientSocket, this, username, connection_type));
-    
+
                     if (connection_type.equals("broker")) {
                         // Get the IP address and port of the connected broker
                         String brokerIP = clientSocket.getInetAddress().getHostAddress();
@@ -67,7 +66,7 @@ public class Broker {
                         connectedBrokers.add(clientSocket);
                         connectedBrokerAddresses.add(brokerAddress);
                     }
-    
+
                 } else {
                     System.out.println("Invalid connection format.");
                     clientSocket.close();
@@ -77,16 +76,15 @@ public class Broker {
             }
         }
     }
-    
 
     public void connectToBroker(String brokerIP, int brokerPort) {
         String brokerAddress = brokerIP + ":" + brokerPort;
-    
+
         if (connectedBrokerAddresses.contains(brokerAddress)) {
             System.out.println("Already connected to broker at: " + brokerAddress);
             return;
         }
-    
+
         connectionPool.submit(() -> {
             try {
                 // Connect to the broker
@@ -95,14 +93,18 @@ public class Broker {
                 connectedBrokerAddresses.add(brokerAddress);
                 PrintWriter out = new PrintWriter(brokerSocket.getOutputStream(), true);
                 System.out.println("Connected to Broker at: " + brokerIP + ":" + brokerPort);
-    
+
                 // Send "broker" connection type and "localhost:port" as the username
                 String localHost = brokerSocket.getLocalAddress().getHostAddress();
-                int localPort = brokerSocket.getLocalPort();
+                int localPort = serverSocket.getLocalPort();
                 out.println(localHost + ":" + localPort + " broker");
-    
+
                 System.out.println("Sent broker_connect message to existing broker at: " + brokerIP + ":" + brokerPort);
-    
+
+                // Create a ClientHandler for the connected broker and add it to the connection pool
+                connectionPool.submit(new ClientHandler(brokerSocket, this, localHost + ":" + localPort, "broker"));
+                System.out.println("Added ClientHandler for broker at: " + brokerAddress);
+
             } catch (IOException e) {
                 e.printStackTrace();
             }
