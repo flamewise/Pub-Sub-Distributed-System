@@ -1,24 +1,60 @@
 package com.example.subscriber;
 
+import com.example.directory.DirectoryServiceClient;
+
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
+import java.util.ArrayList;
+import java.util.List;
 
 public class SubscriberApp {
     public static void main(String[] args) {
         if (args.length != 3) {
-            System.out.println("Usage: java -jar subscriber.jar <host> <port> <username>");
+            System.out.println("Usage: java -jar subscriber.jar <username> <directory_service_ip> <directory_service_port>");
             return;
         }
 
         try {
-            String host = args[0];
-            int port = Integer.parseInt(args[1]);
-            String username = args[2];
+            String username = args[0];
+            String directoryServiceIP = args[1];
+            String directoryServicePort = args[2];
 
-            // Establish a connection to the broker
-            Socket socket = new Socket(host, port);
+            // Initialize DirectoryServiceClient to fetch available brokers
+            DirectoryServiceClient directoryServiceClient = new DirectoryServiceClient(directoryServiceIP + ":" + directoryServicePort);
+            List<String> brokerAddresses = new ArrayList<>(directoryServiceClient.getActiveBrokers());
+
+            if (brokerAddresses.isEmpty()) {
+                System.out.println("No active brokers available.");
+                return;
+            }
+
+            // Print the list of available brokers
+            System.out.println("Available brokers:");
+            for (int i = 0; i < brokerAddresses.size(); i++) {
+                System.out.println((i + 1) + ". " + brokerAddresses.get(i));
+            }
+
+            // Prompt the user to select a broker
+            BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
+            System.out.print("Select a broker (enter the number): ");
+            String input = reader.readLine();
+
+            int selectedBrokerIndex = Integer.parseInt(input) - 1;
+            if (selectedBrokerIndex < 0 || selectedBrokerIndex >= brokerAddresses.size()) {
+                System.out.println("Invalid broker selection.");
+                return;
+            }
+
+            // Extract selected broker's IP and port
+            String selectedBroker = brokerAddresses.get(selectedBrokerIndex);
+            String[] brokerDetails = selectedBroker.split(":");
+            String brokerHost = brokerDetails[0];
+            int brokerPort = Integer.parseInt(brokerDetails[1]);
+
+            // Establish a connection to the selected broker
+            Socket socket = new Socket(brokerHost, brokerPort);
             PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
             BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
 
@@ -41,12 +77,9 @@ public class SubscriberApp {
             }).start();
 
             // Read user input and send commands to the broker
-            BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
-            String input;
             System.out.println("Enter commands (list all, sub <topic_id>, current, unsub <topic_id>, exit):");
 
             while ((input = reader.readLine()) != null) {
-                System.out.println("Socket Message from Broker" + input);
                 String[] parts = input.split(" ", 2);
 
                 switch (parts[0]) {
