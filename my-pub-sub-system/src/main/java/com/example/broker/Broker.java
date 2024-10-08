@@ -13,6 +13,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.SocketAddress;
 
 public class Broker {
     private final ConcurrentHashMap<String, ConcurrentHashMap<String, Subscriber>> topicSubscribers; // topicId -> (username -> Subscriber)
@@ -40,27 +41,52 @@ public class Broker {
             try {
                 Socket clientSocket = serverSocket.accept();
                 BufferedReader in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
-
-                // Read the first message to capture the username
-                String username = in.readLine();
-                System.out.println("Client connected: " + clientSocket.getInetAddress() + " with username: " + username);
-
-                // Create a new ClientHandler and pass the username
-                connectionPool.submit(new ClientHandler(clientSocket, this, username));
+    
+                // Read the first line to capture both username and connection type
+                String inputLine = in.readLine();  // Expecting something like "localhost:12345 broker"
+                String[] parts = inputLine.split(" ", 2);  // Split into two parts: username and connection type
+    
+                if (parts.length == 2) {
+                    String username = parts[0];  // First part is username (e.g., "localhost:12345")
+                    String connection_type = parts[1];  // Second part is connection type (e.g., "broker")
+    
+                    System.out.println("Client connected: " + clientSocket.getInetAddress() + " with username: " + username + " with connection type " + connection_type);
+    
+                    // Create a new ClientHandler and pass the username and connection type
+                    connectionPool.submit(new ClientHandler(clientSocket, this, username, connection_type));
+    
+                    if (connection_type.equals("broker")) {
+                        // Get the IP address and port of the connected broker
+                        String brokerIP = clientSocket.getInetAddress().getHostAddress();
+                        
+                        // Instead of clientSocket.getPort(), print the listening port of this broker
+                        int brokerPort = serverSocket.getLocalPort();  // This is the port this broker is listening on
+                        
+                        // Combine the IP and port to form the broker address
+                        String brokerAddress = brokerIP + ":" + brokerPort;
+                        connectedBrokers.add(clientSocket);
+                        connectedBrokerAddresses.add(brokerAddress);
+                    }
+    
+                } else {
+                    System.out.println("Invalid connection format.");
+                    clientSocket.close();
+                }
             } catch (IOException e) {
                 e.printStackTrace();
             }
         }
     }
+    
 
     public void connectToBroker(String brokerIP, int brokerPort) {
         String brokerAddress = brokerIP + ":" + brokerPort;
-
+    
         if (connectedBrokerAddresses.contains(brokerAddress)) {
             System.out.println("Already connected to broker at: " + brokerAddress);
             return;
         }
-
+    
         connectionPool.submit(() -> {
             try {
                 // Connect to the broker
@@ -69,17 +95,20 @@ public class Broker {
                 connectedBrokerAddresses.add(brokerAddress);
                 PrintWriter out = new PrintWriter(brokerSocket.getOutputStream(), true);
                 System.out.println("Connected to Broker at: " + brokerIP + ":" + brokerPort);
-
-                // Notify the connected broker of the new connection and request a reverse connection
-                out.println("broker_connect " + serverSocket.getInetAddress().getHostAddress() + " " + serverSocket.getLocalPort());
+    
+                // Send "broker" connection type and "localhost:port" as the username
+                String localHost = brokerSocket.getLocalAddress().getHostAddress();
+                int localPort = brokerSocket.getLocalPort();
+                out.println(localHost + ":" + localPort + " broker");
+    
                 System.out.println("Sent broker_connect message to existing broker at: " + brokerIP + ":" + brokerPort);
-
-                // Here, the existing broker will establish a reverse connection back to this broker
+    
             } catch (IOException e) {
                 e.printStackTrace();
             }
         });
     }
+    
 
     public void createTopic(String username, String topicId, String topicName) {
         if (!topicNames.containsKey(topicId)) {
@@ -160,7 +189,6 @@ public class Broker {
     }
 
     public void synchronizeTopic(String topicId, String topicName) {
-        System.out.println(connectedBrokers);
         for (Socket brokerSocket : connectedBrokers) {
             try {
                 PrintWriter out = new PrintWriter(brokerSocket.getOutputStream(), true);

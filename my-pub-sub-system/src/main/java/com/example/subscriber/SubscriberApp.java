@@ -22,8 +22,8 @@ public class SubscriberApp {
             PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
             BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
 
-            // Send the username to the broker after connection
-            out.println(username);
+            // Send the username and connection type to the broker after connection
+            out.println(username + " subscriber");
 
             // Create Subscriber object
             Subscriber subscriber = new Subscriber(username, out);
@@ -46,6 +46,7 @@ public class SubscriberApp {
             System.out.println("Enter commands (list all, sub <topic_id>, current, unsub <topic_id>, exit):");
 
             while ((input = reader.readLine()) != null) {
+                System.out.println("Socket Message from Broker" + input);
                 String[] parts = input.split(" ", 2);
 
                 switch (parts[0]) {

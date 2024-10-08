@@ -9,208 +9,228 @@ import java.io.PrintWriter;
 import java.net.Socket;
 
 public class ClientHandler extends Thread {
-    private final Socket clientSocket;
+    private final Socket client_socket;
     private final Broker broker;
-    private final String username;  // This will be captured from the first line sent by the client
+    private final String username;  // This is captured from the first line sent by the client
+    private final String connection_type;  // New variable to store the type of connection
     private PrintWriter out;
 
-    public ClientHandler(Socket socket, Broker broker, String username) {
-        this.clientSocket = socket;
+    public ClientHandler(Socket socket, Broker broker, String username, String connection_type) {
+        this.client_socket = socket;
         this.broker = broker;
         this.username = username;  // Username is passed during connection (from the first message)
+        this.connection_type = connection_type;  // Initialize the connection type
     }
 
     @Override
     public void run() {
-        try (BufferedReader in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
-             PrintWriter out = new PrintWriter(clientSocket.getOutputStream(), true)) {
+        try (BufferedReader in = new BufferedReader(new InputStreamReader(client_socket.getInputStream()));
+             PrintWriter out = new PrintWriter(client_socket.getOutputStream(), true)) {
 
             this.out = out;
-            handleClientCommands(in);
+            handle_client_commands(in);
 
         } catch (IOException e) {
-            System.err.println("Client disconnected abruptly: " + clientSocket.getInetAddress());
+            System.err.println("Client disconnected abruptly: " + client_socket.getInetAddress());
         } finally {
-            closeClientSocket();
+            close_client_socket();
         }
     }
 
-    private void handleClientCommands(BufferedReader in) throws IOException {
-        String inputLine;
-        while ((inputLine = in.readLine()) != null) {
-            String[] parts = inputLine.split(" ", 3);  // Now expects commands with topicId and message as needed
+    private void handle_client_commands(BufferedReader in) throws IOException {
+        String input_line;
+        while ((input_line = in.readLine()) != null) {
+            String[] parts = input_line.split(" ", 3);  // Now expects commands with topicId and message as needed
 
             if (parts.length > 0) {
                 String command = parts[0];
-                handleCommand(command, parts);
+                handle_command(command, parts);
             } else {
                 out.println("Invalid command.");
             }
         }
     }
 
-    private void handleCommand(String command, String[] parts) {
+    private void handle_command(String command, String[] parts) {
         try {
-            switch (command) {
-                case "create":
-                    handleCreate(parts);
+            switch (connection_type) {
+                case "publisher":
+                    handle_publisher_commands(command, parts);
                     break;
-                case "publish":
-                    handlePublish(parts);
+                case "subscriber":
+                    handle_subscriber_commands(command, parts);
                     break;
-                case "sub":
-                    handleSubscribe(parts);
-                    break;
-                case "unsub":
-                    handleUnsubscribe(parts);
-                    break;
-                case "list":
-                    handleList(parts);
-                    break;
-                case "current":
-                    handleCurrent(parts);
-                    break;
-                case "broker_connect":
-                    handleBrokerConnect(parts);
-                    break;
-                case "synchronize_topic":
-                    handleSynchronizeTopic(parts);
-                    break;
-                case "synchronize_message":
-                    handleSynchronizeMessage(parts);
-                    break;
-                case "synchronize_sub":
-                    handleSynchronizeSubscription(parts);
-                    break;
-                case "request_topic":
-                    handleRequestTopic(parts);
-                    break;
-                case "exit":
-                    handleExit();
+                case "broker":
+                    handle_broker_commands(command, parts);
                     break;
                 default:
-                    out.println("Unknown command.");
+                    out.println("Unknown connection type.");
             }
         } catch (Exception e) {
             out.println("Error processing command: " + e.getMessage());
         }
     }
 
-    private void handleCreate(String[] parts) {
+    private void handle_publisher_commands(String command, String[] parts) {
+        switch (command) {
+            case "create":
+                handle_create(parts);
+                break;
+            case "publish":
+                handle_publish(parts);
+                break;
+            default:
+                out.println("Invalid command for publisher.");
+        }
+    }
+
+    private void handle_subscriber_commands(String command, String[] parts) {
+        switch (command) {
+            case "sub":
+                handle_subscribe(parts);
+                break;
+            case "unsub":
+                handle_unsubscribe(parts);
+                break;
+            case "current":
+                handle_current(parts);
+                break;
+            default:
+                out.println("Invalid command for subscriber.");
+        }
+    }
+
+    private void handle_broker_commands(String command, String[] parts) {
+        switch (command) {
+            case "broker_connect":
+                handle_broker_connect(parts);
+                break;
+            case "synchronize_topic":
+                handle_synchronize_topic(parts);
+                break;
+            case "synchronize_message":
+                handle_synchronize_message(parts);
+                break;
+            case "synchronize_sub":
+                handle_synchronize_subscription(parts);
+                break;
+            case "request_topic":
+                handle_request_topic(parts);
+                break;
+            default:
+                out.println("Invalid command for broker.");
+        }
+    }
+
+    private void handle_create(String[] parts) {
         if (parts.length == 3) {
-            broker.createTopic(username, parts[1], parts[2]);  // Username is already captured
+            broker.createTopic(username, parts[1], parts[2]);
             out.println("Topic created: " + parts[2] + " (ID: " + parts[1] + ")");
         } else {
             out.println("Usage: create {topic_id} {topic_name}");
         }
     }
 
-    private void handlePublish(String[] parts) {
+    private void handle_publish(String[] parts) {
         if (parts.length == 3) {
-            broker.publishMessage(username, parts[1], parts[2]);  // Username is already captured
+            broker.publishMessage(username, parts[1], parts[2]);
             out.println("Message published to topic: " + parts[1]);
         } else {
             out.println("Usage: publish {topic_id} {message}");
         }
     }
 
-    private void handleSubscribe(String[] parts) {
+    private void handle_subscribe(String[] parts) {
         if (parts.length == 2) {
             Subscriber subscriber = new Subscriber(username, out);
-            broker.addSubscriber(parts[1], subscriber, username);  // Username is already captured
+            broker.addSubscriber(parts[1], subscriber, username);
             out.println(username + " subscribed to topic: " + parts[1]);
         } else {
             out.println("Usage: sub {topic_id}");
         }
     }
 
-    private void handleUnsubscribe(String[] parts) {
+    private void handle_unsubscribe(String[] parts) {
         if (parts.length == 2) {
-            broker.unsubscribe(parts[1], username);  // Username is already captured
+            broker.unsubscribe(parts[1], username);
             out.println(username + " unsubscribed from topic: " + parts[1]);
         } else {
             out.println("Usage: unsub {topic_id}");
         }
     }
 
-    private void handleList(String[] parts) {
-        if (parts.length == 2 && "all".equals(parts[1])) {
-            broker.listAllTopics(out);
-        } else {
-            out.println("Usage: list all");
-        }
+    private void handle_current(String[] parts) {
+        broker.listSubscriptions(out, username);
     }
 
-    private void handleCurrent(String[] parts) {
-        broker.listSubscriptions(out, username);  // Use the username captured at connection
-    }
-
-    private void handleBrokerConnect(String[] parts) {
-        if (parts.length == 3) {
-            String brokerIP = parts[1];
-            int brokerPort = Integer.parseInt(parts[2]);
+    private void handle_broker_connect(String[] parts) {
+        if (parts.length == 2) {  // Now expecting "username connection_type"
+            String brokerAddress = parts[0];  // "username" now contains broker's IP and port, e.g., "localhost:12345"
+            String[] addressParts = brokerAddress.split(":");
     
-            // Establish reverse connection to the broker
-            broker.connectToBroker(brokerIP, brokerPort);
-            System.out.println("Received broker_connect from " + brokerIP + ":" + brokerPort);
+            if (addressParts.length == 2) {
+                String broker_ip = addressParts[0];  // Extract the IP
+                int broker_port = Integer.parseInt(addressParts[1]);  // Extract the port
+    
+                // Establish reverse connection to the broker
+                broker.connectToBroker(broker_ip, broker_port);
+                System.out.println("Received broker_connect from " + broker_ip + ":" + broker_port);
+            } else {
+                out.println("Invalid broker address format.");
+            }
         } else {
             out.println("Invalid broker_connect message.");
         }
     }
     
 
-    private void handleSynchronizeTopic(String[] parts) {
+    private void handle_synchronize_topic(String[] parts) {
         if (parts.length == 3) {
-            String topicId = parts[1];
-            String topicName = parts[2];
-            broker.createTopic(username, topicId, topicName);  // Sync with this broker
-            out.println("Synchronized topic: " + topicName + " (ID: " + topicId + ")");
+            String topic_id = parts[1];
+            String topic_name = parts[2];
+            broker.createTopic(username, topic_id, topic_name);
+            out.println("Synchronized topic: " + topic_name + " (ID: " + topic_id + ")");
         } else {
             out.println("Invalid synchronize_topic message.");
         }
     }
 
-    private void handleSynchronizeMessage(String[] parts) {
+    private void handle_synchronize_message(String[] parts) {
         if (parts.length == 3) {
-            String topicId = parts[1];
+            String topic_id = parts[1];
             String message = parts[2];
-            broker.publishMessage(username, topicId, message);  // Sync message to this broker's subscribers
-            out.println("Synchronized message to topic: " + topicId);
+            broker.publishMessage(username, topic_id, message);
+            out.println("Synchronized message to topic: " + topic_id);
         } else {
             out.println("Invalid synchronize_message message.");
         }
     }
 
-    private void handleSynchronizeSubscription(String[] parts) {
+    private void handle_synchronize_subscription(String[] parts) {
         if (parts.length == 3) {
-            String topicId = parts[1];
-            String subscriberId = parts[2];
-            Subscriber subscriber = new Subscriber(subscriberId, out);  // Dummy subscriber to synchronize
-            broker.addSubscriber(topicId, subscriber, subscriberId);
-            out.println("Synchronized subscription for subscriber: " + subscriberId + " to topic: " + topicId);
+            String topic_id = parts[1];
+            String subscriber_id = parts[2];
+            Subscriber subscriber = new Subscriber(subscriber_id, out);
+            broker.addSubscriber(topic_id, subscriber, subscriber_id);
+            out.println("Synchronized subscription for subscriber: " + subscriber_id + " to topic: " + topic_id);
         } else {
             out.println("Invalid synchronize_sub message.");
         }
     }
 
-    private void handleRequestTopic(String[] parts) {
+    private void handle_request_topic(String[] parts) {
         if (parts.length == 2) {
-            String topicId = parts[1];
-            broker.requestTopicFromBrokers(topicId);  // Request the topic from other brokers
+            String topic_id = parts[1];
+            broker.requestTopicFromBrokers(topic_id);
         } else {
             out.println("Invalid request_topic message.");
         }
     }
 
-    private void handleExit() throws IOException {
-        out.println("Closing connection...");
-        clientSocket.close();
-    }
-
-    private void closeClientSocket() {
+    private void close_client_socket() {
         try {
-            if (!clientSocket.isClosed()) {
-                clientSocket.close();
+            if (!client_socket.isClosed()) {
+                client_socket.close();
             }
         } catch (IOException e) {
             e.printStackTrace();

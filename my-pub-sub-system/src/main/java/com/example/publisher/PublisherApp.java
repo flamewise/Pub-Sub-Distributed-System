@@ -33,7 +33,7 @@ public class PublisherApp {
                         if (parts.length == 3) {
                             String topicId = parts[1];
                             String topicName = parts[2];
-                            publisher.createTopic(topicId, topicName);  // Send topicId, and topicName
+                            publisher.createTopic(topicId, topicName);
                             System.out.println(username + " created topic: " + topicName + " (ID: " + topicId + ")");
                         } else {
                             System.out.println("Usage: create {topic_id} {topic_name}");
@@ -44,7 +44,7 @@ public class PublisherApp {
                         if (parts.length == 3) {
                             String topicId = parts[1];
                             String message = parts[2];
-                            publisher.publishMessage(topicId, message);  // Send topicId, and message
+                            publisher.publishMessage(topicId, message);
                             System.out.println(username + " published message to topic: " + topicId);
                         } else {
                             System.out.println("Usage: publish {topic_id} {message}");
