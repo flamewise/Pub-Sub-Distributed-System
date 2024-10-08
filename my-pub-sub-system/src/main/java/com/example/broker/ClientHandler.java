@@ -130,7 +130,7 @@ public class ClientHandler extends Thread {
 
     private void handle_publish(String[] parts) {
         if (parts.length == 3) {
-            broker.publishMessage(username, parts[1], parts[2]);
+            broker.publishMessage(username, parts[1], parts[2], true);
             out.println("Message published to topic: " + parts[1]);
         } else {
             out.println("Usage: publish {topic_id} {message}");
@@ -175,7 +175,7 @@ public class ClientHandler extends Thread {
         if (parts.length == 3) {
             String topic_id = parts[1];
             String message = parts[2];
-            broker.publishMessage(username, topic_id, message);
+            broker.publishMessage(username, topic_id, message, false);
             out.println("Synchronized message to topic: " + topic_id);
         } else {
             out.println("Invalid synchronize_message message.");

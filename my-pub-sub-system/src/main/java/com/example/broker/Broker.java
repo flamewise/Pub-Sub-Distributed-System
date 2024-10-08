@@ -8,6 +8,8 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -137,7 +139,7 @@ public class Broker {
         }
     }
 
-    public void publishMessage(String username, String topicId, String message) {
+    public void publishMessage(String username, String topicId, String message, boolean synchronizedRequired) {
         if (topicSubscribers.containsKey(topicId)) {
             ConcurrentHashMap<String, Subscriber> subscribers = topicSubscribers.get(topicId);
 
@@ -146,7 +148,10 @@ public class Broker {
                     subscriber.receiveMessage(topicId, message);
                 }
             }
-            synchronizeMessage(topicId, message);
+            if (synchronizedRequired) {
+                synchronizeMessage(topicId, message);
+            }
+
         } else {
             System.out.println("Topic not found: " + topicId);
         }
@@ -236,5 +241,48 @@ public class Broker {
 
     public Set<String> getConnectedBrokerAddresses() {
         return connectedBrokerAddresses;
+    }
+
+    // Register with the Directory Service
+    public void registerWithDirectoryService(String directoryServiceAddress) {
+        try {
+            String[] addressParts = directoryServiceAddress.split(":");
+            String dirServiceIP = addressParts[0];
+            int dirServicePort = Integer.parseInt(addressParts[1]);
+
+            Socket dirServiceSocket = new Socket(dirServiceIP, dirServicePort);
+            PrintWriter out = new PrintWriter(dirServiceSocket.getOutputStream(), true);
+
+            String brokerAddress = serverSocket.getInetAddress().getHostAddress() + ":" + serverSocket.getLocalPort();
+            out.println("register " + brokerAddress);  // Register broker address with the Directory Service
+            System.out.println("Registered with Directory Service at: " + directoryServiceAddress);
+            
+            dirServiceSocket.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    // Connect to all other brokers retrieved from Directory Service or passed manually
+    public void connectToOtherBrokers(List<String> brokerAddresses) {
+        for (String brokerAddress : brokerAddresses) {
+            String[] brokerDetails = brokerAddress.split(":");
+            if (brokerDetails.length == 2) {
+                String brokerIP = brokerDetails[0];
+                int brokerPort = Integer.parseInt(brokerDetails[1]);
+                connectToBroker(brokerIP, brokerPort);  // Connect to each broker
+            }
+        }
+    }
+
+    // Parse broker addresses passed as arguments
+    public List<String> parseBrokerAddresses(String[] args) {
+        List<String> brokerAddresses = new ArrayList<>();
+        if (args.length > 2 && "-b".equals(args[2])) {
+            for (int i = 3; i < args.length; i++) {
+                brokerAddresses.add(args[i]);
+            }
+        }
+        return brokerAddresses;
     }
 }
