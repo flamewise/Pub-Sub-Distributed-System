@@ -49,6 +49,10 @@ public class DirectoryServiceApp {
                             out.println(broker); // Send each broker address
                         }
                         out.println("END"); // End of the list
+                    } else if (request.startsWith("deregister ")) {
+                        String brokerAddress = request.substring(11); // Get the broker address after 'deregister '
+                        deregisterBroker(brokerAddress);
+                        out.println("Broker deregistered: " + brokerAddress);
                     }
 
                     clientSocket.close();
@@ -64,5 +68,13 @@ public class DirectoryServiceApp {
     public void registerBroker(String brokerAddress) {
         activeBrokers.add(brokerAddress);
         System.out.println("Broker registered: " + brokerAddress);
+    }
+
+    public void deregisterBroker(String brokerAddress) {
+        if (activeBrokers.remove(brokerAddress)) {
+            System.out.println("Broker deregistered: " + brokerAddress);
+        } else {
+            System.out.println("Broker not found: " + brokerAddress);
+        }
     }
 }

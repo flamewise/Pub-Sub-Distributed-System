@@ -16,4 +16,13 @@ public class DirectoryService {
     public Set<String> getActiveBrokers() {
         return activeBrokers;
     }
+
+    // Deregister a broker
+    public void deregisterBroker(String brokerAddress) {
+        if (activeBrokers.remove(brokerAddress)) {
+            System.out.println("Broker deregistered: " + brokerAddress);
+        } else {
+            System.out.println("Broker not found: " + brokerAddress);
+        }
+    }
 }

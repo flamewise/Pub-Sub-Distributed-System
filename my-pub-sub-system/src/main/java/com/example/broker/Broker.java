@@ -43,27 +43,20 @@ public class Broker {
                 Socket clientSocket = serverSocket.accept();
                 BufferedReader in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
 
-                // Read the first line to capture both username and connection type
-                String inputLine = in.readLine();  // Expecting something like "brokerlocalhost:12345 broker"
-                String[] parts = inputLine.split(" ", 2);  // Split into two parts: username and connection type
+                String inputLine = in.readLine();  
+                String[] parts = inputLine.split(" ", 2);  
 
                 if (parts.length == 2) {
-                    String username = parts[0];  // First part is username (e.g., "localhost:12345")
-                    String connection_type = parts[1];  // Second part is connection type (e.g., "broker")
+                    String username = parts[0];  
+                    String connection_type = parts[1];  
 
                     System.out.println("Client connected: " + clientSocket.getInetAddress() + " with username: " + username + " with connection type " + connection_type);
 
-                    // Create a new ClientHandler and pass the username and connection type
                     connectionPool.submit(new ClientHandler(clientSocket, this, username, connection_type));
 
                     if (connection_type.equals("broker")) {
-                        // Get the IP address and port of the connected broker
                         String brokerIP = clientSocket.getInetAddress().getHostAddress();
-                        
-                        // Instead of clientSocket.getPort(), print the listening port of this broker
-                        int brokerPort = serverSocket.getLocalPort();  // This is the port this broker is listening on
-                        
-                        // Combine the IP and port to form the broker address
+                        int brokerPort = serverSocket.getLocalPort(); 
                         String brokerAddress = brokerIP + ":" + brokerPort;
                         connectedBrokers.add(clientSocket);
                         connectedBrokerAddresses.add(brokerAddress);
@@ -89,26 +82,19 @@ public class Broker {
 
         connectionPool.submit(() -> {
             try {
-                // Connect to the broker
                 Socket brokerSocket = new Socket(brokerIP, brokerPort);
                 connectedBrokers.add(brokerSocket);
                 connectedBrokerAddresses.add(brokerAddress);
                 PrintWriter out = new PrintWriter(brokerSocket.getOutputStream(), true);
                 System.out.println("Connected to Broker at: " + brokerIP + ":" + brokerPort);
 
-                // Send "broker" connection type and "localhost:port" as the username
                 String localHost = brokerSocket.getLocalAddress().getHostAddress();
                 int localPort = serverSocket.getLocalPort();
                 out.println(localHost + ":" + localPort + " broker");
 
-                System.out.println("Sent broker_connect message to existing broker at: " + brokerIP + ":" + brokerPort);
-
-                // Create a ClientHandler for the connected broker and add it to the connection pool
                 connectionPool.submit(new ClientHandler(brokerSocket, this, localHost + ":" + localPort, "broker"));
-                System.out.println("Added ClientHandler for broker at: " + brokerAddress);
-
             } catch (IOException e) {
-                e.printStackTrace();
+                System.out.println("Error connecting to broker at " + brokerIP + ":" + brokerPort + ": " + e.getMessage());
             }
         });
     }
@@ -242,46 +228,56 @@ public class Broker {
         return connectedBrokerAddresses;
     }
 
-    // Register with the Directory Service
-    public void registerWithDirectoryService(String directoryServiceAddress) {
-        try {
-            String[] addressParts = directoryServiceAddress.split(":");
-            String dirServiceIP = addressParts[0];
-            int dirServicePort = Integer.parseInt(addressParts[1]);
-
-            Socket dirServiceSocket = new Socket(dirServiceIP, dirServicePort);
-            PrintWriter out = new PrintWriter(dirServiceSocket.getOutputStream(), true);
-
-            String brokerAddress = serverSocket.getInetAddress().getHostAddress() + ":" + serverSocket.getLocalPort();
-            out.println("register " + brokerAddress);  // Register broker address with the Directory Service
-            System.out.println("Registered with Directory Service at: " + directoryServiceAddress);
-            
-            dirServiceSocket.close();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+    // Method to prevent connecting to itself
+    public boolean isSelf(String brokerIP, int brokerPort) {
+        String selfAddress = serverSocket.getInetAddress().getHostAddress() + ":" + serverSocket.getLocalPort();
+        String brokerAddress = brokerIP + ":" + brokerPort;
+        return selfAddress.equals(brokerAddress);
     }
 
-    // Connect to all other brokers retrieved from Directory Service or passed manually
     public void connectToOtherBrokers(List<String> brokerAddresses) {
         for (String brokerAddress : brokerAddresses) {
             String[] brokerDetails = brokerAddress.split(":");
             if (brokerDetails.length == 2) {
                 String brokerIP = brokerDetails[0];
                 int brokerPort = Integer.parseInt(brokerDetails[1]);
-                connectToBroker(brokerIP, brokerPort);  // Connect to each broker
+                if (!isSelf(brokerIP, brokerPort)) {  // Prevent self-connection
+                    connectToBroker(brokerIP, brokerPort);  // Connect to each broker
+                }
             }
         }
     }
 
-    // Parse broker addresses passed as arguments
-    public List<String> parseBrokerAddresses(String[] args) {
-        List<String> brokerAddresses = new ArrayList<>();
-        if (args.length > 2 && "-b".equals(args[2])) {
-            for (int i = 3; i < args.length; i++) {
-                brokerAddresses.add(args[i]);
+    public void registerWithDirectoryServiceAndConnect(String directoryServiceAddress) {
+        try {
+            String[] addressParts = directoryServiceAddress.split(":");
+            String dirServiceIP = addressParts[0];
+            int dirServicePort = Integer.parseInt(addressParts[1]);
+    
+            Socket dirServiceSocket = new Socket(dirServiceIP, dirServicePort);
+            PrintWriter out = new PrintWriter(dirServiceSocket.getOutputStream(), true);
+            BufferedReader in = new BufferedReader(new InputStreamReader(dirServiceSocket.getInputStream()));
+    
+            String brokerAddress = serverSocket.getInetAddress().getHostAddress() + ":" + serverSocket.getLocalPort();
+            out.println("register " + brokerAddress);
+            System.out.println("Registered with Directory Service at: " + directoryServiceAddress);
+    
+            out.println("get_brokers");
+            String response;
+            List<String> brokerAddresses = new ArrayList<>();
+            while ((response = in.readLine()) != null && !"END".equals(response)) {
+                if (!response.equals(brokerAddress)) {  // Don't connect to self
+                    brokerAddresses.add(response);
+                }
             }
+    
+            connectToOtherBrokers(brokerAddresses);
+    
+            dirServiceSocket.close();
+        } catch (IOException e) {
+            System.out.println("Failed to register or connect with the Directory Service.");
+            e.printStackTrace();  // Better logging of the error
         }
-        return brokerAddresses;
     }
+    
 }
