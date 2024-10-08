@@ -30,6 +30,9 @@ public class DirectoryServiceClient {
 
             String response;
             while ((response = in.readLine()) != null) {
+                if ("END".equals(response)) {
+                    break;
+                }
                 brokers.add(response);
             }
 

@@ -112,7 +112,6 @@ public class Broker {
             }
         });
     }
-    
 
     public void createTopic(String username, String topicId, String topicName) {
         if (!topicNames.containsKey(topicId)) {
