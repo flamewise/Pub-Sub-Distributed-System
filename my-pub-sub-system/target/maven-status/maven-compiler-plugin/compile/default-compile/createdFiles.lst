@@ -1,4 +1,5 @@
 com/example/subscriber/Subscriber.class
+com/example/broker/BrokerHandler.class
 com/example/broker/Broker.class
 com/example/broker/BrokerApp.class
 com/example/directory/DirectoryServiceApp.class

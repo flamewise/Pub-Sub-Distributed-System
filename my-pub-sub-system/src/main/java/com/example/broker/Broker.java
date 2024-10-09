@@ -63,8 +63,10 @@ public class Broker {
                     
                     if ("broker".equals(connectionType)) {
                         // Add broker connection to connectedBrokers list
-                        // Call connectToBroker to establish a two-way connection
-                        connectToBroker(username);
+                        // Use BrokerHandler to handle broker communication
+                        connectedBrokers.add(clientSocket);
+                        connectedBrokerAddresses.add(username);
+                        connectionPool.submit(new BrokerHandler(clientSocket, this, username));
                     } else {
                         connectionPool.submit(new ClientHandler(clientSocket, this, username, connectionType));
                     }
@@ -179,14 +181,30 @@ public class Broker {
         for (Socket brokerSocket : connectedBrokers) {
             try {
                 PrintWriter out = new PrintWriter(brokerSocket.getOutputStream(), true);
-                
-                // Print the IP address and port of the brokerSocket
+    
+                // Print full socket information: Local and Remote addresses and ports
                 String socketIP = brokerSocket.getInetAddress().getHostAddress();
                 int socketPort = brokerSocket.getPort();
-                System.out.println("Sending to broker at IP: " + socketIP + " Port: " + socketPort);
+                String localAddress = brokerSocket.getLocalAddress().toString();
+                int localPort = brokerSocket.getLocalPort();
+                String remoteAddress = brokerSocket.getRemoteSocketAddress().toString();
+    
+                System.out.println("Sending to broker at IP: " + socketIP + " Port: " + socketPort +
+                                   ". Full socket info: Local Address: " + localAddress + 
+                                   " Local Port: " + localPort + 
+                                   " Remote Address: " + remoteAddress);
     
                 // Send the synchronization message
+                try {
+                    Thread.sleep(1500);  // Pause the thread for 1500 milliseconds (1.5 seconds)
+                } catch (InterruptedException e) {
+                    // Handle the exception, such as restoring the thread's interrupt status
+                    System.err.println("Thread was interrupted during sleep: " + e.getMessage());
+                    Thread.currentThread().interrupt();  // Optionally, re-interrupt the thread
+                }
+                
                 out.println("synchronize_topic " + topicId + " " + topicName);
+                out.flush();
                 System.out.println("Sent 'synchronize_topic' for topic ID: " + topicId + " to broker at IP: " + socketIP + " Port: " + socketPort);
     
             } catch (IOException e) {
@@ -194,6 +212,7 @@ public class Broker {
             }
         }
     }
+    
     
 
     public void synchronizeMessage(String topicId, String message) {
