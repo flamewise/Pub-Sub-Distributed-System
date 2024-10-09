@@ -3,6 +3,7 @@ package com.example.publisher;
 import com.example.directory.DirectoryServiceClient;
 
 import java.io.BufferedReader;
+import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
@@ -59,6 +60,13 @@ public class PublisherApp {
             PrintWriter out = new PrintWriter(new OutputStreamWriter(socket.getOutputStream()), true);
             BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
 
+            // Perform handshake with the broker
+            if (!performHandshake(out, in, socket)) {
+                System.err.println("Handshake with broker failed. Closing connection.");
+                socket.close();
+                return;
+            }
+            
             // Send the initial message with username and connection type (publisher)
             out.println(username + " publisher");
 
@@ -129,6 +137,33 @@ public class PublisherApp {
 
         } catch (Exception e) {
             e.printStackTrace();
+        }
+    }
+
+    private static boolean performHandshake(PrintWriter out, BufferedReader in, Socket brokerSocket) throws IOException {
+        // Retrieve and print socket information
+        String localAddress = brokerSocket.getLocalAddress().toString();
+        int localPort = brokerSocket.getLocalPort();
+        String remoteAddress = brokerSocket.getRemoteSocketAddress().toString();
+        System.out.println("Local Address: " + localAddress + ", Local Port: " + localPort);
+        System.out.println("Remote Address: " + remoteAddress);
+
+        // Send handshake initiation message to the broker
+        out.println("HANDSHAKE_INIT");
+        out.flush();  // Ensure the message is sent
+        System.out.println("Sent HANDSHAKE_INIT to broker at IP: " + remoteAddress);
+
+        // Wait for the broker to respond with a handshake acknowledgment
+        String ack = in.readLine();
+        System.out.println("Received from broker: " + ack);
+
+        // Check if the handshake was successful
+        if ("HANDSHAKE_ACK".equals(ack)) {
+            System.out.println("Handshake successful with broker at IP: " + remoteAddress);
+            return true;
+        } else {
+            System.err.println("Handshake failed with broker at IP: " + remoteAddress + ". Received: " + ack);
+            return false;
         }
     }
 }

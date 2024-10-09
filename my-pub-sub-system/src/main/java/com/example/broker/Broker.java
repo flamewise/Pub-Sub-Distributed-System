@@ -44,31 +44,39 @@ public class Broker {
         System.out.println("Broker registered with Directory Service at: " + directoryServiceAddress);
     }
 
+
     public void start() {
         try {
             while (true) {
                 Socket clientSocket = serverSocket.accept();
-                
-                // Read the first message to capture username and connectionType
                 BufferedReader in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+                PrintWriter out = new PrintWriter(clientSocket.getOutputStream(), true);
+
+                // Perform handshake before any further communication
+                if (!waitForHandshake(in, out, clientSocket)) {
+                    System.out.println("Handshake failed, closing connection.");
+                    clientSocket.close();
+                    continue;
+                }
+
+                System.out.println("Handshake successful!");
+
+                // Read the first message to capture username and connectionType after handshake
                 String firstMessage = in.readLine();
                 String[] parts = firstMessage.split(" ");
                 System.out.println("Connection message");
-                System.out.println(parts[0] + " " + parts[1]);
                 if (parts.length == 2) {
                     String username = parts[0];  // Capture the username (or broker address)
                     String connectionType = parts[1];  // Capture the connection type (publisher, subscriber, or broker)
-                    
                     System.out.println(username + " connected as " + connectionType);
                     
+                    // Depending on the connection type, handle the client or broker connection
                     if ("broker".equals(connectionType)) {
-                        // Add broker connection to connectedBrokers list
-                        // Use BrokerHandler to handle broker communication
-                        connectedBrokers.add(clientSocket);
-                        connectedBrokerAddresses.add(username);
-                        connectionPool.submit(new BrokerHandler(clientSocket, this, username));
+                        // Handle broker connection logic
+                        System.out.println("Broker connected: " + username);
                     } else {
-                        connectionPool.submit(new ClientHandler(clientSocket, this, username, connectionType));
+                        // Handle publisher or subscriber connection logic
+                        System.out.println("Client connected as: " + connectionType);
                     }
                 } else {
                     System.out.println("Invalid first message format.");
@@ -79,7 +87,30 @@ public class Broker {
             e.printStackTrace();
         }
     }
-    
+
+    // Method to handle the handshake
+    private boolean waitForHandshake(BufferedReader in, PrintWriter out, Socket clientSocket) throws IOException {
+        System.out.println("Waiting for HANDSHAKE_INIT from client...");
+
+        String handshakeInit = in.readLine();
+        if (handshakeInit != null) {
+            System.out.println("Received handshake initiation: " + handshakeInit);
+        } else {
+            System.err.println("Received null. Connection might have been closed by the client.");
+            return false;
+        }
+
+        // Check if the handshake initiation is correct
+        if ("HANDSHAKE_INIT".equals(handshakeInit)) {
+            out.println("HANDSHAKE_ACK");
+            out.flush();
+            System.out.println("Sent HANDSHAKE_ACK to client: " + clientSocket.getInetAddress());
+            return true;
+        } else {
+            System.err.println("Invalid handshake initiation from client: " + handshakeInit);
+            return false;
+        }
+    }
 
     public void createTopic(String username, String topicId, String topicName) {
         if (!topicNames.containsKey(topicId)) {
