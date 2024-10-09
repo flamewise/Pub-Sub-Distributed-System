@@ -59,57 +59,57 @@ public class Broker {
                     continue;
                 }
 
+                // At this point, the handshake is complete, and the client is identified
                 System.out.println("Handshake successful!");
 
-                // Read the first message to capture username and connectionType after handshake
-                String firstMessage = in.readLine();
-                String[] parts = firstMessage.split(" ");
-                System.out.println("Connection message");
-                if (parts.length == 2) {
-                    String username = parts[0];  // Capture the username (or broker address)
-                    String connectionType = parts[1];  // Capture the connection type (publisher, subscriber, or broker)
-                    System.out.println(username + " connected as " + connectionType);
-                    
-                    // Depending on the connection type, handle the client or broker connection
-                    if ("broker".equals(connectionType)) {
-                        // Handle broker connection logic
-                        System.out.println("Broker connected: " + username);
-                    } else {
-                        // Handle publisher or subscriber connection logic
-                        System.out.println("Client connected as: " + connectionType);
-                    }
-                } else {
-                    System.out.println("Invalid first message format.");
-                    clientSocket.close();
-                }
+                // The client type and username have already been captured in waitForHandshake,
+                // and now we handle client logic based on the connection type.
             }
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
 
-    // Method to handle the handshake
     private boolean waitForHandshake(BufferedReader in, PrintWriter out, Socket clientSocket) throws IOException {
         System.out.println("Waiting for HANDSHAKE_INIT from client...");
 
+        // Receive the handshake initiation
         String handshakeInit = in.readLine();
-        if (handshakeInit != null) {
-            System.out.println("Received handshake initiation: " + handshakeInit);
-        } else {
-            System.err.println("Received null. Connection might have been closed by the client.");
+        if (handshakeInit == null || !handshakeInit.startsWith("HANDSHAKE_INIT")) {
+            System.err.println("Invalid handshake initiation from client.");
             return false;
         }
 
-        // Check if the handshake initiation is correct
-        if ("HANDSHAKE_INIT".equals(handshakeInit)) {
-            out.println("HANDSHAKE_ACK");
-            out.flush();
-            System.out.println("Sent HANDSHAKE_ACK to client: " + clientSocket.getInetAddress());
-            return true;
-        } else {
-            System.err.println("Invalid handshake initiation from client: " + handshakeInit);
+        // Extract the username and connection type from the message
+        String[] parts = handshakeInit.split(" ", 3);
+        if (parts.length != 3 || !"HANDSHAKE_INIT".equals(parts[0])) {
+            System.err.println("Invalid handshake format. Expected: HANDSHAKE_INIT <username> <connectionType> get " + parts);
             return false;
         }
+
+        String username = parts[1];
+        String connectionType = parts[2];
+        System.out.println("Received handshake initiation from: " + username + " as " + connectionType);
+
+        // Depending on the connection type, handle the client or broker connection
+        if ("broker".equals(connectionType)) {
+            // Handle broker connection logic
+            System.out.println("Broker connected: " + username);
+        } else if ("publisher".equals(connectionType) || "subscriber".equals(connectionType)) {
+            // Handle publisher or subscriber connection
+            connectionPool.submit(new ClientHandler(clientSocket, this, username, connectionType));
+            System.out.println("Client connected as: " + connectionType);
+        } else {
+            System.err.println("Unknown connection type: " + connectionType);
+            return false;
+        }
+
+        // Once everything is validated, send the handshake acknowledgment
+        out.println("HANDSHAKE_ACK");
+        out.flush();  // Ensure the message is sent
+        System.out.println("Sent HANDSHAKE_ACK to client: " + username);
+
+        return true;
     }
 
     public void createTopic(String username, String topicId, String topicName) {

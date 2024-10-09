@@ -60,15 +60,12 @@ public class PublisherApp {
             PrintWriter out = new PrintWriter(new OutputStreamWriter(socket.getOutputStream()), true);
             BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
 
-            // Perform handshake with the broker
-            if (!performHandshake(out, in, socket)) {
+            // Perform handshake with the broker by sending HANDSHAKE_INIT with username and connection type
+            if (!performHandshake(out, in, socket, username)) {
                 System.err.println("Handshake with broker failed. Closing connection.");
                 socket.close();
                 return;
             }
-            
-            // Send the initial message with username and connection type (publisher)
-            out.println(username + " publisher");
 
             // Now the Publisher can interact with the broker
             Publisher publisher = new Publisher(out, in);
@@ -140,7 +137,7 @@ public class PublisherApp {
         }
     }
 
-    private static boolean performHandshake(PrintWriter out, BufferedReader in, Socket brokerSocket) throws IOException {
+    private static boolean performHandshake(PrintWriter out, BufferedReader in, Socket brokerSocket, String username) throws IOException {
         // Retrieve and print socket information
         String localAddress = brokerSocket.getLocalAddress().toString();
         int localPort = brokerSocket.getLocalPort();
@@ -148,8 +145,8 @@ public class PublisherApp {
         System.out.println("Local Address: " + localAddress + ", Local Port: " + localPort);
         System.out.println("Remote Address: " + remoteAddress);
 
-        // Send handshake initiation message to the broker
-        out.println("HANDSHAKE_INIT");
+        // Send handshake initiation message to the broker with username and connection type
+        out.println("HANDSHAKE_INIT " + username + " publisher");
         out.flush();  // Ensure the message is sent
         System.out.println("Sent HANDSHAKE_INIT to broker at IP: " + remoteAddress);
 
