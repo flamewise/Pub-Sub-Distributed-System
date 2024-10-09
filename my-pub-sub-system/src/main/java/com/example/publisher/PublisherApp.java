@@ -24,11 +24,8 @@ public class PublisherApp {
 
             // Initialize DirectoryServiceClient to fetch available brokers
             DirectoryServiceClient directoryServiceClient = new DirectoryServiceClient(directoryServiceIP + ":" + directoryServicePort);
-            
-            // Fetch active brokers, ensuring the list is populated until 'END' signal is received
             List<String> brokerAddresses = new ArrayList<>(directoryServiceClient.getActiveBrokers());
 
-            // If no brokers are returned, print a message and exit
             if (brokerAddresses.isEmpty()) {
                 System.out.println("No active brokers available.");
                 return;
@@ -60,12 +57,13 @@ public class PublisherApp {
             // Establish a connection to the selected broker
             Socket socket = new Socket(brokerHost, brokerPort);
             PrintWriter out = new PrintWriter(new OutputStreamWriter(socket.getOutputStream()), true);
+            BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
 
             // Send the initial message with username and connection type (publisher)
             out.println(username + " publisher");
 
             // Now the Publisher can interact with the broker
-            Publisher publisher = new Publisher(brokerHost, brokerPort, username);
+            Publisher publisher = new Publisher(out, in);
             System.out.println("Connected to broker at " + brokerHost + ":" + brokerPort);
 
             // Handle publisher commands
@@ -125,6 +123,9 @@ public class PublisherApp {
                         break;
                 }
             }
+
+            // Close the connection when done
+            socket.close();
 
         } catch (Exception e) {
             e.printStackTrace();

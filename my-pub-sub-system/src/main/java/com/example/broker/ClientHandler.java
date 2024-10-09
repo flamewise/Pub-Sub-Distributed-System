@@ -16,6 +16,7 @@ public class ClientHandler extends Thread {
     private PrintWriter out;
 
     public ClientHandler(Socket socket, Broker broker, String username, String connectionType) {
+        //System.out.println("Client Connect"+username + " " + connectionType);
         this.clientSocket = socket;
         this.broker = broker;
         this.username = username;
@@ -38,10 +39,17 @@ public class ClientHandler extends Thread {
     }
 
     private void handleClientCommands(BufferedReader in) throws IOException {
+        // Print the IP address and port of the client
+        String clientIP = clientSocket.getInetAddress().getHostAddress();
+        int clientPort = clientSocket.getPort();
+        System.out.println("Handling commands from client IP: " + clientIP + " Port: " + clientPort + " with type " + connectionType);
+    
         String inputLine;
-        while ((inputLine = in.readLine()) != null) {
-            String[] parts = inputLine.split(" ", 3);  // Now expects commands with topicId and message as needed
-
+        while (true) {
+            inputLine = in.readLine();
+            System.out.println("Client Command: " + inputLine + " from " + connectionType + " at IP: " + clientIP + " Port: " + clientPort);
+            String[] parts = inputLine.split(" ");
+    
             if (parts.length > 0) {
                 String command = parts[0];
                 handleCommand(command, parts);
@@ -50,8 +58,10 @@ public class ClientHandler extends Thread {
             }
         }
     }
+    
 
     private void handleCommand(String command, String[] parts) {
+
         try {
             switch (connectionType) {
                 case "publisher":
@@ -85,6 +95,7 @@ public class ClientHandler extends Thread {
     }
 
     private void handleSubscriberCommands(String command, String[] parts) {
+        System.out.println("Subscriber" + command);
         switch (command) {
             case "sub":
                 handleSubscribe(parts);
@@ -95,6 +106,10 @@ public class ClientHandler extends Thread {
             case "current":
                 handleCurrent(parts);
                 break;
+            case "list_all":
+                // New case to handle topic listing
+                broker.listAllTopics(out);
+                break;
             default:
                 out.println("Invalid command for subscriber.");
         }
@@ -103,6 +118,7 @@ public class ClientHandler extends Thread {
     private void handleBrokerCommands(String command, String[] parts) {
         switch (command) {
             case "synchronize_topic":
+                
                 handleSynchronizeTopic(parts);
                 break;
             case "synchronize_message":
@@ -130,12 +146,14 @@ public class ClientHandler extends Thread {
 
     private void handlePublish(String[] parts) {
         if (parts.length == 3) {
-            broker.publishMessage(username, parts[1], parts[2], true);
+            // Call the broker's method to publish the message and synchronize it across brokers
+            broker.publishMessage(username, parts[1], parts[2], true); // `true` means synchronization is needed
             out.println("Message published to topic: " + parts[1]);
         } else {
             out.println("Usage: publish {topic_id} {message}");
         }
     }
+    
 
     private void handleSubscribe(String[] parts) {
         if (parts.length == 2) {

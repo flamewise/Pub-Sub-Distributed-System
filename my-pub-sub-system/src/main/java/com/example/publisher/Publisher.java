@@ -2,25 +2,16 @@ package com.example.publisher;
 
 import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.io.PrintWriter;
-import java.net.Socket;
-import java.util.List;
 
 public class Publisher {
-    private final Socket socket;
     private final PrintWriter out;
     private final BufferedReader in;
 
-    // Constructor to connect to the broker
-    public Publisher(String brokerHost, int brokerPort, String username) throws IOException {
-        this.socket = new Socket(brokerHost, brokerPort);  // Connect to the broker
-        this.out = new PrintWriter(socket.getOutputStream(), true);
-        this.in = new BufferedReader(new InputStreamReader(socket.getInputStream()));  // For receiving responses from the broker
-
-        // Send the username to the broker after connection
-        out.println(username + " publisher");
-        System.out.println("Connected to broker at " + brokerHost + ":" + brokerPort + " as " + username);
+    // Constructor to use existing PrintWriter and BufferedReader
+    public Publisher(PrintWriter out, BufferedReader in) {
+        this.out = out;
+        this.in = in;
     }
 
     // Method to create a new topic
@@ -55,16 +46,6 @@ public class Publisher {
                 System.out.println(response);
                 break;  // Read only one response from the broker
             }
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
-    // Method to close the connection
-    public void closeConnection() {
-        try {
-            if (out != null) out.close();
-            if (socket != null) socket.close();
         } catch (IOException e) {
             e.printStackTrace();
         }

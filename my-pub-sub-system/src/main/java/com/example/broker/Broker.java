@@ -16,6 +16,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class Broker {
+    private final String ownBrokerAddress;  // Store the broker's own address
     private final ConcurrentHashMap<String, ConcurrentHashMap<String, Subscriber>> topicSubscribers; // topicId -> (username -> Subscriber)
     private final ConcurrentHashMap<String, String> topicNames; // topicId -> topicName
     private final ConcurrentHashMap<String, String> topicPublishers;  // topicId -> publisherUsername
@@ -35,15 +36,14 @@ public class Broker {
         this.connectionPool = Executors.newCachedThreadPool();
         this.directoryServiceClient = new DirectoryServiceClient(directoryServiceAddress);
         this.serverSocket = new ServerSocket(port);
+        this.ownBrokerAddress = serverSocket.getInetAddress().getHostAddress() + ":" + port;
         System.out.println("Broker started on port: " + port);
 
         // Register the broker with the directory service
-        String brokerAddress = serverSocket.getInetAddress().getHostAddress() + ":" + port;
-        directoryServiceClient.registerBroker(brokerAddress);
+        directoryServiceClient.registerBroker(ownBrokerAddress);
         System.out.println("Broker registered with Directory Service at: " + directoryServiceAddress);
     }
 
-    // Broker start method to listen for incoming connections
     public void start() {
         try {
             while (true) {
@@ -53,12 +53,21 @@ public class Broker {
                 BufferedReader in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
                 String firstMessage = in.readLine();
                 String[] parts = firstMessage.split(" ");
+                System.out.println("Connection message");
+                System.out.println(parts[0] + " " + parts[1]);
                 if (parts.length == 2) {
-                    String username = parts[0];  // Capture the username
+                    String username = parts[0];  // Capture the username (or broker address)
                     String connectionType = parts[1];  // Capture the connection type (publisher, subscriber, or broker)
                     
-                    // Pass username and connectionType to ClientHandler
-                    connectionPool.submit(new ClientHandler(clientSocket, this, username, connectionType));
+                    System.out.println(username + " connected as " + connectionType);
+                    
+                    if ("broker".equals(connectionType)) {
+                        // Add broker connection to connectedBrokers list
+                        // Call connectToBroker to establish a two-way connection
+                        connectToBroker(username);
+                    } else {
+                        connectionPool.submit(new ClientHandler(clientSocket, this, username, connectionType));
+                    }
                 } else {
                     System.out.println("Invalid first message format.");
                     clientSocket.close();
@@ -68,6 +77,7 @@ public class Broker {
             e.printStackTrace();
         }
     }
+    
 
     public void createTopic(String username, String topicId, String topicName) {
         if (!topicNames.containsKey(topicId)) {
@@ -75,37 +85,53 @@ public class Broker {
             topicNames.put(topicId, topicName);
             topicPublishers.put(topicId, username);
             System.out.println(username + " created topic: " + topicName + " (ID: " + topicId + ")");
+    
+            // Synchronize the newly created topic with all brokers
+            synchronizeTopic(topicId, topicName);
         } else {
             System.out.println("Topic already exists: " + topicNames.get(topicId));
         }
     }
+    
 
     public void publishMessage(String username, String topicId, String message, boolean synchronizedRequired) {
+        // Check if the topic exists and has subscribers
         if (topicSubscribers.containsKey(topicId)) {
             ConcurrentHashMap<String, Subscriber> subscribers = topicSubscribers.get(topicId);
-
+    
             if (subscribers != null && !subscribers.isEmpty()) {
+                // Deliver the message to local subscribers
                 for (Subscriber subscriber : subscribers.values()) {
                     subscriber.receiveMessage(topicId, message);
                 }
             }
-
+    
+            // If synchronization is required, inform other brokers
             if (synchronizedRequired) {
                 synchronizeMessage(topicId, message);
             }
-
+    
         } else {
             System.out.println("Topic not found: " + topicId);
         }
     }
+    
 
     public void addSubscriber(String topicId, Subscriber subscriber, String username) {
+        // Check if the topic already has a subscriber list; if not, create one
         ConcurrentHashMap<String, Subscriber> subscribers = topicSubscribers.computeIfAbsent(topicId, k -> new ConcurrentHashMap<>());
+        
+        // Add the subscriber if they are not already in the list
         if (!subscribers.containsKey(username)) {
             subscribers.put(username, subscriber);
             subscriberUsernames.put(username, topicId);
+            
+            // Synchronize the subscription across all brokers immediately
+            synchronizeSubscription(topicId, username);
         }
     }
+    
+    
 
     public void unsubscribe(String topicId, String username) {
         ConcurrentHashMap<String, Subscriber> subscribers = topicSubscribers.get(topicId);
@@ -113,6 +139,21 @@ public class Broker {
             subscribers.remove(username);
             subscriberUsernames.remove(username);
         }
+    }
+
+    // Method to list all topics to a subscriber
+    public void listAllTopics(PrintWriter out) {
+        if (topicNames.isEmpty()) {
+            out.println("No topics available.");
+        } else {
+            out.println("Available topics:");
+            for (String topicId : topicNames.keySet()) {
+                String topicName = topicNames.get(topicId);
+                //System.out.println("Topic ID: " + topicId + ", Name: " + topicName);
+                out.println("Topic ID: " + topicId + ", Name: " + topicName);
+            }
+        }
+        out.println("END");  // Indicate the end of the topic list
     }
 
     public void listSubscriptions(PrintWriter out, String subscriberId) {
@@ -125,24 +166,38 @@ public class Broker {
     }
 
     public void synchronizeTopic(String topicId, String topicName) {
+        updateConnectedBrokers();
         Set<String> activeBrokers = directoryServiceClient.getActiveBrokers();
+    
         for (String brokerAddress : activeBrokers) {
             if (!connectedBrokerAddresses.contains(brokerAddress)) {
                 connectToBroker(brokerAddress);
             }
         }
-
+    
+        // Print debug info and send synchronization message to all connected brokers
         for (Socket brokerSocket : connectedBrokers) {
             try {
                 PrintWriter out = new PrintWriter(brokerSocket.getOutputStream(), true);
+                
+                // Print the IP address and port of the brokerSocket
+                String socketIP = brokerSocket.getInetAddress().getHostAddress();
+                int socketPort = brokerSocket.getPort();
+                System.out.println("Sending to broker at IP: " + socketIP + " Port: " + socketPort);
+    
+                // Send the synchronization message
                 out.println("synchronize_topic " + topicId + " " + topicName);
+                System.out.println("Sent 'synchronize_topic' for topic ID: " + topicId + " to broker at IP: " + socketIP + " Port: " + socketPort);
+    
             } catch (IOException e) {
                 e.printStackTrace();
             }
         }
     }
+    
 
     public void synchronizeMessage(String topicId, String message) {
+        updateConnectedBrokers();
         Set<String> activeBrokers = directoryServiceClient.getActiveBrokers();
         for (String brokerAddress : activeBrokers) {
             if (!connectedBrokerAddresses.contains(brokerAddress)) {
@@ -161,22 +216,21 @@ public class Broker {
     }
 
     public void synchronizeSubscription(String topicId, String subscriberId) {
-        Set<String> activeBrokers = directoryServiceClient.getActiveBrokers();
-        for (String brokerAddress : activeBrokers) {
-            if (!connectedBrokerAddresses.contains(brokerAddress)) {
-                connectToBroker(brokerAddress);
-            }
-        }
-
+        // Update the list of connected brokers before synchronization
+        this.updateConnectedBrokers();
+        
+        // Synchronize subscription with all connected brokers
         for (Socket brokerSocket : connectedBrokers) {
             try {
                 PrintWriter out = new PrintWriter(brokerSocket.getOutputStream(), true);
+                // Send the synchronization message to the connected broker
                 out.println("synchronize_sub " + topicId + " " + subscriberId);
             } catch (IOException e) {
                 e.printStackTrace();
             }
         }
     }
+    
 
     public void requestTopicFromBrokers(String topicId) {
         Set<String> activeBrokers = directoryServiceClient.getActiveBrokers();
@@ -200,26 +254,38 @@ public class Broker {
         String[] parts = brokerAddress.split(":");
         String brokerIP = parts[0];
         int brokerPort = Integer.parseInt(parts[1]);
-
+    
+        // Check if the brokerAddress is the same as this broker's own address
+        if (brokerAddress.equals(ownBrokerAddress)) {
+            System.out.println("Skipping connection to self at: " + brokerAddress);
+            return;  // Skip connecting to itself
+        }
+    
         if (connectedBrokerAddresses.contains(brokerAddress)) {
             System.out.println("Already connected to broker at: " + brokerAddress);
             return;
         }
-
-        connectionPool.submit(() -> {
-            try {
-                Socket brokerSocket = new Socket(brokerIP, brokerPort);
-                connectedBrokers.add(brokerSocket);
-                connectedBrokerAddresses.add(brokerAddress);
-                PrintWriter out = new PrintWriter(brokerSocket.getOutputStream(), true);
-                System.out.println("Connected to Broker at: " + brokerIP + ":" + brokerPort);
-
-                connectionPool.submit(new ClientHandler(brokerSocket, this, brokerIP + ":" + brokerPort, "broker"));
-            } catch (IOException e) {
-                System.out.println("Error connecting to broker at " + brokerAddress + ": " + e.getMessage());
-            }
-        });
+    
+        try {
+            // Establish the connection synchronously
+            Socket brokerSocket = new Socket(brokerIP, brokerPort);
+            connectedBrokers.add(brokerSocket);
+            connectedBrokerAddresses.add(brokerAddress);
+            PrintWriter out = new PrintWriter(brokerSocket.getOutputStream(), true);
+            BufferedReader in = new BufferedReader(new InputStreamReader(brokerSocket.getInputStream()));
+    
+            // Send the first message identifying this broker
+            out.println(ownBrokerAddress + " broker");  // Send own broker address and connection type 'broker'
+            System.out.println("Connected to Broker at: " + brokerIP + ":" + brokerPort);
+    
+            // Now submit the ClientHandler task to handle the broker communication asynchronously
+            connectionPool.submit(new ClientHandler(brokerSocket, this, brokerIP + ":" + brokerPort, "broker"));
+        } catch (IOException e) {
+            System.out.println("Error connecting to broker at " + brokerAddress + ": " + e.getMessage());
+        }
     }
+     
+    
 
     public void updateConnectedBrokers() {
         // Retrieve active brokers from the Directory Service

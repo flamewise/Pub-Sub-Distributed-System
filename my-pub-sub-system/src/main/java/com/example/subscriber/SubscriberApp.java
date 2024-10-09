@@ -103,7 +103,7 @@ public class SubscriberApp {
 
                     case "list":
                         if (parts.length == 2 && "all".equals(parts[1])) {
-                            out.println("list all");  // Request list of all topics
+                            out.println("list_all");  // Request list of all topics
                             System.out.println("Requested list of all topics.");
                         } else {
                             System.out.println("Usage: list all");

@@ -60,7 +60,7 @@ public class DirectoryServiceClient {
 
             // Send the register message with the broker's address
             out.println("register " + brokerAddress);
-            System.out.println("Broker registered with Directory Service at: " + directoryServiceAddress);
+            //System.out.println("Broker registered with Directory Service at: " + directoryServiceAddress);
 
             socket.close();
         } catch (IOException e) {
