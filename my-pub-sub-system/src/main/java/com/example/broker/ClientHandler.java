@@ -56,6 +56,18 @@ public class ClientHandler extends Thread {
         String inputLine;
         while (true) {
             inputLine = in.readLine();
+    
+            // Check if the client has disconnected
+            if (inputLine == null) {
+                System.out.println("Client disconnected: " + clientIP + ":" + clientPort);
+                if (connectionType.equals("publisher")) {
+                    handlePublisherCrash();
+                } else {
+                    handleSubscriberCrash();
+                }
+                break;  // Exit the loop when the client disconnects
+            }
+    
             System.out.println("Client Command: " + inputLine + " from " + connectionType + " at IP: " + clientIP + " Port: " + clientPort);
             String[] parts = inputLine.split(" ");
     
@@ -67,6 +79,7 @@ public class ClientHandler extends Thread {
             }
         }
     }
+    
     
 
     private void handleCommand(String command, String[] parts) {
@@ -241,5 +254,33 @@ public class ClientHandler extends Thread {
         return username;
     }
 
+    private void handlePublisherCrash() {
+        System.out.println("Handling publisher crash for: " + username);
+    
+        // Iterate over all topics to find the ones created by this publisher
+        for (String topicId : broker.topicPublishers.keySet()) {
+            String publisher = broker.topicPublishers.get(topicId);
+            if (publisher.equals(username)) {
+                // Delete the topic and notify all subscribers
+                broker.deleteTopic(topicId, true); // true indicates that synchronization is required
+                System.out.println("Deleted topic " + topicId + " due to publisher crash: " + username);
+            }
+        }
+    }
+    
+    private void handleSubscriberCrash() {
+        System.out.println("Handling subscriber crash for: " + username);
+    
+        // Iterate over all topics to find the subscriptions of this subscriber
+        for (String topicId : broker.topicSubscribers.keySet()) {
+            ConcurrentHashMap<String, Subscriber> subscribers = broker.topicSubscribers.get(topicId);
+            if (subscribers != null && subscribers.containsKey(username)) {
+                // Unsubscribe the subscriber from this topic
+                broker.unsubscribe(topicId, username, true); // true indicates that synchronization is required
+                System.out.println("Unsubscribed " + username + " from topic " + topicId + " due to subscriber crash");
+            }
+        }
+    }
+    
 
 }

@@ -17,9 +17,9 @@ import java.util.concurrent.Executors;
 
 public class Broker {
     private final String ownBrokerAddress;  // Store the broker's own address
-    private final ConcurrentHashMap<String, ConcurrentHashMap<String, Subscriber>> topicSubscribers; // topicId -> (username -> Subscriber)
+    public final ConcurrentHashMap<String, ConcurrentHashMap<String, Subscriber>> topicSubscribers; // topicId -> (username -> Subscriber)
     public final ConcurrentHashMap<String, String> topicNames; // topicId -> topicName
-    private final ConcurrentHashMap<String, String> topicPublishers;  // topicId -> publisherUsername
+    public final ConcurrentHashMap<String, String> topicPublishers;  // topicId -> publisherUsername
     private final ConcurrentHashMap<String, String> subscriberUsernames;  // Map username to topicId
     private final Set<String> connectedBrokerAddresses = ConcurrentHashMap.newKeySet(); // Stores connected brokers
     private final CopyOnWriteArrayList<Socket> connectedBrokers;
