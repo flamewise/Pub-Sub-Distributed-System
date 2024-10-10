@@ -64,6 +64,7 @@ public class BrokerHandler extends Thread {
         try {
             switch (command) {
                 case "synchronize_topic":
+                    
                     handleSynchronizeTopic(parts);
                     break;
                 case "synchronize_message":
@@ -127,12 +128,9 @@ public class BrokerHandler extends Thread {
         if (parts.length == 3) {
             String topicId = parts[1];
             String subscriberId = parts[2];
-
-            // Create a placeholder Subscriber object, since the actual object isn't shared between brokers
-            Subscriber subscriber = new Subscriber(subscriberId, new PrintWriter(System.out, true), new BufferedReader(null)); // PrintWriter/BufferReader just for placeholder
-            
-            // Add the subscriber with synchronization set to false to prevent recursion
-            broker.addSubscriber(topicId, subscriber, subscriberId, false);
+    
+            // Add the subscriber ID to the broker's subscription list without creating a Subscriber object
+            broker.addSubscriberId(topicId, subscriberId, false);
             
             // Optionally, log the action or perform any necessary steps here
             System.out.println("Synchronized subscription for subscriber: " + subscriberId + " to topic: " + topicId);
@@ -140,6 +138,7 @@ public class BrokerHandler extends Thread {
             out.println("Invalid synchronize_sub message.");
         }
     }
+    
 
     private void closeBrokerSocket() {
         try {

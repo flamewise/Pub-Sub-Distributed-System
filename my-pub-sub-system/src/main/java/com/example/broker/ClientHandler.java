@@ -94,8 +94,21 @@ public class ClientHandler extends Thread {
             case "publish":
                 handlePublish(parts);
                 break;
+            case "show":
+                handleShow(parts);
+                break;
             default:
                 out.println("Invalid command for publisher.");
+        }
+    }
+
+
+    private void handleShow(String[] parts) {
+        if (parts.length == 2) {
+            // Call the broker's method to show the subscriber count for a given topic
+            broker.showSubscriberCount(parts[1], out);
+        } else {
+            out.println("Usage: show {topic_id}");
         }
     }
 
@@ -148,13 +161,15 @@ public class ClientHandler extends Thread {
 
     private void handleSubscribe(String[] parts) {
         if (parts.length == 2) {
-            Subscriber subscriber = new Subscriber(username, out, in);
-            broker.addSubscriber(parts[1], subscriber, username, true);
-            //out.println(username + " subscribed to topic: " + parts[1]);
+            String topicId = parts[1];
+            // Add the subscriber ID (username) directly to the broker without creating a Subscriber object
+            broker.addSubscriberId(topicId, username, true);
+            out.println(username + " subscribed to topic: " + topicId);
         } else {
             out.println("Usage: sub {topic_id}");
         }
     }
+    
 
     private void handleUnsubscribe(String[] parts) {
         if (parts.length == 2) {

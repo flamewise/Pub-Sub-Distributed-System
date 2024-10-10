@@ -178,21 +178,24 @@ public class Broker {
     
     
 
-    public void addSubscriber(String topicId, Subscriber subscriber, String username, boolean synchronizedRequired) {
+    public void addSubscriberId(String topicId, String subscriberId, boolean synchronizedRequired) {
         // Check if the topic already has a subscriber list; if not, create one
         ConcurrentHashMap<String, Subscriber> subscribers = topicSubscribers.computeIfAbsent(topicId, k -> new ConcurrentHashMap<>());
         
-        // Add the subscriber if they are not already in the list
-        if (!subscribers.containsKey(username)) {
-            subscribers.put(username, subscriber);
-            subscriberUsernames.put(username, topicId);
+        // Create a new Subscriber object if it does not already exist
+        if (!subscribers.containsKey(subscriberId)) {
+            // Create the Subscriber object (you can modify it to store more meaningful data)
+            Subscriber subscriber = new Subscriber(subscriberId, new PrintWriter(System.out, true), null); // Placeholder for the real writer/reader
+            subscribers.put(subscriberId, subscriber);
             
             if (synchronizedRequired) {
                 // Synchronize the subscription across all brokers immediately
-                synchronizeSubscription(topicId, username);
+                synchronizeSubscription(topicId, subscriberId);
             }
         }
     }
+    
+    
 
 
     public void synchronizeSubscription(String topicId, String subscriberId) {
@@ -205,6 +208,8 @@ public class Broker {
                 PrintWriter out = new PrintWriter(brokerSocket.getOutputStream(), true);
                 // Send the synchronization message to the connected broker
                 out.println("synchronize_sub " + topicId + " " + subscriberId);
+                System.out.println("synchronize_sub " + topicId + " " + subscriberId);
+                System.out.println("dowqodnqwd");
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -411,4 +416,13 @@ public class Broker {
             }
         }
     }
+    public void showSubscriberCount(String topicId, PrintWriter out) {
+        ConcurrentHashMap<String, Subscriber> subscribers = topicSubscribers.get(topicId);
+        if (subscribers != null) {
+            out.println("Subscriber count for topic " + topicId + ": " + subscribers.size());
+        } else {
+            out.println("Topic not found: " + topicId);
+        }
+    }
+    
 }
