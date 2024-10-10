@@ -79,15 +79,16 @@ public class BrokerHandler extends Thread {
     }
 
     private void handleSynchronizeTopic(String[] parts) {
-        if (parts.length == 3) {
+        if (parts.length == 4) {  // Now expecting 4 parts (synchronize_topic <topicId> <topicName> <username>)
             String topicId = parts[1];
             String topicName = parts[2];
-            broker.synchronizeTopic(topicId, topicName);
-            out.println("Synchronized topic: " + topicName + " (ID: " + topicId + ")");
+            String username = parts[3];  // The username who created the topic
+            broker.createSimpleTopic(username, topicId, topicName); // Only create topic, no further synchronized topic call to prevent recursion
         } else {
             out.println("Invalid synchronize_topic message.");
         }
     }
+    
 
     private void handleSynchronizeMessage(String[] parts) {
         if (parts.length == 3) {

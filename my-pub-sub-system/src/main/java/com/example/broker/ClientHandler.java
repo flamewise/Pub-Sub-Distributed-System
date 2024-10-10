@@ -70,9 +70,6 @@ public class ClientHandler extends Thread {
                 case "subscriber":
                     handleSubscriberCommands(command, parts);
                     break;
-                case "broker":
-                    handleBrokerCommands(command, parts);
-                    break;
                 default:
                     out.println("Unknown connection type.");
             }
@@ -115,25 +112,7 @@ public class ClientHandler extends Thread {
         }
     }
 
-    private void handleBrokerCommands(String command, String[] parts) {
-        switch (command) {
-            case "synchronize_topic":
-                
-                handleSynchronizeTopic(parts);
-                break;
-            case "synchronize_message":
-                handleSynchronizeMessage(parts);
-                break;
-            case "synchronize_sub":
-                handleSynchronizeSubscription(parts);
-                break;
-            case "request_topic":
-                handleRequestTopic(parts);
-                break;
-            default:
-                out.println("Invalid command for broker.");
-        }
-    }
+
 
     private void handleCreate(String[] parts) {
         if (parts.length == 3) {
@@ -178,47 +157,12 @@ public class ClientHandler extends Thread {
         broker.listSubscriptions(out, username);
     }
 
-    private void handleSynchronizeTopic(String[] parts) {
-        if (parts.length == 3) {
-            String topicId = parts[1];
-            String topicName = parts[2];
-            broker.synchronizeTopic(topicId, topicName);
-            out.println("Synchronized topic: " + topicName + " (ID: " + topicId + ")");
-        } else {
-            out.println("Invalid synchronize_topic message.");
-        }
-    }
 
-    private void handleSynchronizeMessage(String[] parts) {
-        if (parts.length == 3) {
-            String topicId = parts[1];
-            String message = parts[2];
-            broker.synchronizeMessage(topicId, message);
-            out.println("Synchronized message to topic: " + topicId);
-        } else {
-            out.println("Invalid synchronize_message message.");
-        }
-    }
 
-    private void handleSynchronizeSubscription(String[] parts) {
-        if (parts.length == 3) {
-            String topicId = parts[1];
-            String subscriberId = parts[2];
-            broker.synchronizeSubscription(topicId, subscriberId);
-            out.println("Synchronized subscription for subscriber: " + subscriberId + " to topic: " + topicId);
-        } else {
-            out.println("Invalid synchronize_sub message.");
-        }
-    }
 
-    private void handleRequestTopic(String[] parts) {
-        if (parts.length == 2) {
-            String topicId = parts[1];
-            broker.requestTopicFromBrokers(topicId);
-        } else {
-            out.println("Invalid request_topic message.");
-        }
-    }
+
+
+
 
     private void closeClientSocket() {
         try {

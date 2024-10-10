@@ -72,29 +72,33 @@ public class Broker {
 
     private boolean waitForHandshake(BufferedReader in, PrintWriter out, Socket clientSocket) throws IOException {
         System.out.println("Waiting for HANDSHAKE_INIT from client...");
-
+    
         // Receive the handshake initiation
         String handshakeInit = in.readLine();
         if (handshakeInit == null || !handshakeInit.startsWith("HANDSHAKE_INIT")) {
-            System.err.println("Invalid handshake initiation from client.");
+            System.err.println("Invalid handshake initiation from client. Should recerive HANDSHAKE_INIT but we got " + handshakeInit);
             return false;
         }
-
-        // Extract the username and connection type from the message
+    
+        // Extract the username (or broker address) and connection type from the message
         String[] parts = handshakeInit.split(" ", 3);
         if (parts.length != 3 || !"HANDSHAKE_INIT".equals(parts[0])) {
-            System.err.println("Invalid handshake format. Expected: HANDSHAKE_INIT <username> <connectionType> get " + parts);
+            System.err.println("Invalid handshake format. Expected: HANDSHAKE_INIT <username> <connectionType>");
             return false;
         }
-
+    
         String username = parts[1];
         String connectionType = parts[2];
         System.out.println("Received handshake initiation from: " + username + " as " + connectionType);
-
+    
         // Depending on the connection type, handle the client or broker connection
         if ("broker".equals(connectionType)) {
-            // Handle broker connection logic
             System.out.println("Broker connected: " + username);
+            // Add broker to the list of connected brokers
+            connectedBrokers.add(clientSocket);
+            connectedBrokerAddresses.add(username);
+            // Submit the broker to the broker handler for further processing
+            connectionPool.submit(new BrokerHandler(clientSocket, this, username));
         } else if ("publisher".equals(connectionType) || "subscriber".equals(connectionType)) {
             // Handle publisher or subscriber connection
             connectionPool.submit(new ClientHandler(clientSocket, this, username, connectionType));
@@ -103,14 +107,15 @@ public class Broker {
             System.err.println("Unknown connection type: " + connectionType);
             return false;
         }
-
+    
         // Once everything is validated, send the handshake acknowledgment
         out.println("HANDSHAKE_ACK");
         out.flush();  // Ensure the message is sent
         System.out.println("Sent HANDSHAKE_ACK to client: " + username);
-
+    
         return true;
     }
+    
 
     public void createTopic(String username, String topicId, String topicName) {
         if (!topicNames.containsKey(topicId)) {
@@ -119,12 +124,30 @@ public class Broker {
             topicPublishers.put(topicId, username);
             System.out.println(username + " created topic: " + topicName + " (ID: " + topicId + ")");
     
-            // Synchronize the newly created topic with all brokers
-            synchronizeTopic(topicId, topicName);
+            // Synchronize the newly created topic with all brokers, passing the username
+            synchronizeTopic(username, topicId, topicName);
         } else {
             System.out.println("Topic already exists: " + topicNames.get(topicId));
         }
     }
+    
+
+
+    // Only add topic topicid topicname, no further function call, will be used in handlesynchronized
+    public void createSimpleTopic(String username, String topicId, String topicName) {
+        // Ensure the topicId does not already exist
+        if (!topicNames.containsKey(topicId)) {
+            // Store the topicId, topicName, and associated publisher username
+            topicSubscribers.putIfAbsent(topicId, new ConcurrentHashMap<>());
+            topicNames.put(topicId, topicName);
+            topicPublishers.put(topicId, username);
+    
+            System.out.println("Topic created by " + username + ": " + topicName + " (ID: " + topicId + ")");
+        } else {
+            System.out.println("Topic already exists: " + topicName + " (ID: " + topicId + ")");
+        }
+    }
+    
     
 
     public void publishMessage(String username, String topicId, String message, boolean synchronizedRequired) {
@@ -198,7 +221,7 @@ public class Broker {
         }
     }
 
-    public void synchronizeTopic(String topicId, String topicName) {
+    public void synchronizeTopic(String username, String topicId, String topicName) {
         updateConnectedBrokers();
         Set<String> activeBrokers = directoryServiceClient.getActiveBrokers();
     
@@ -225,25 +248,16 @@ public class Broker {
                                    " Local Port: " + localPort + 
                                    " Remote Address: " + remoteAddress);
     
-                // Send the synchronization message
-                try {
-                    Thread.sleep(1500);  // Pause the thread for 1500 milliseconds (1.5 seconds)
-                } catch (InterruptedException e) {
-                    // Handle the exception, such as restoring the thread's interrupt status
-                    System.err.println("Thread was interrupted during sleep: " + e.getMessage());
-                    Thread.currentThread().interrupt();  // Optionally, re-interrupt the thread
-                }
-                
-                out.println("synchronize_topic " + topicId + " " + topicName);
+                // Send the synchronization message with the username
+                out.println("synchronize_topic " + topicId + " " + topicName + " " + username);
                 out.flush();
-                System.out.println("Sent 'synchronize_topic' for topic ID: " + topicId + " to broker at IP: " + socketIP + " Port: " + socketPort);
+                System.out.println("Sent 'synchronize_topic' for topic ID: " + topicId + " with username: " + username + " to broker at IP: " + socketIP + " Port: " + socketPort);
     
             } catch (IOException e) {
                 e.printStackTrace();
             }
         }
     }
-    
     
 
     public void synchronizeMessage(String topicId, String message) {
@@ -281,25 +295,6 @@ public class Broker {
         }
     }
     
-
-    public void requestTopicFromBrokers(String topicId) {
-        Set<String> activeBrokers = directoryServiceClient.getActiveBrokers();
-        for (String brokerAddress : activeBrokers) {
-            if (!connectedBrokerAddresses.contains(brokerAddress)) {
-                connectToBroker(brokerAddress);
-            }
-        }
-
-        for (Socket brokerSocket : connectedBrokers) {
-            try {
-                PrintWriter out = new PrintWriter(brokerSocket.getOutputStream(), true);
-                out.println("request_topic " + topicId);
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-    }
-
     public void connectToBroker(String brokerAddress) {
         String[] parts = brokerAddress.split(":");
         String brokerIP = parts[0];
@@ -324,9 +319,14 @@ public class Broker {
             PrintWriter out = new PrintWriter(brokerSocket.getOutputStream(), true);
             BufferedReader in = new BufferedReader(new InputStreamReader(brokerSocket.getInputStream()));
     
-            // Send the first message identifying this broker
-            out.println(ownBrokerAddress + " broker");  // Send own broker address and connection type 'broker'
-            System.out.println("Connected to Broker at: " + brokerIP + ":" + brokerPort);
+            // Perform the handshake with the broker
+            if (!performBrokerHandshake(out, in, brokerSocket)) {
+                System.err.println("Handshake with broker failed: " + brokerAddress + ". Closing connection.");
+                brokerSocket.close();
+                return;
+            }
+    
+            System.out.println("Broker handshake successful with " + brokerAddress);
     
             // Now submit the ClientHandler task to handle the broker communication asynchronously
             connectionPool.submit(new ClientHandler(brokerSocket, this, brokerIP + ":" + brokerPort, "broker"));
@@ -334,8 +334,34 @@ public class Broker {
             System.out.println("Error connecting to broker at " + brokerAddress + ": " + e.getMessage());
         }
     }
-     
     
+    private boolean performBrokerHandshake(PrintWriter out, BufferedReader in, Socket brokerSocket) throws IOException {
+        // Retrieve and print socket information
+        String localAddress = brokerSocket.getLocalAddress().toString();
+        int localPort = brokerSocket.getLocalPort();
+        String remoteAddress = brokerSocket.getRemoteSocketAddress().toString();
+        System.out.println("Local Address: " + localAddress + ", Local Port: " + localPort);
+        System.out.println("Remote Address: " + remoteAddress);
+    
+        // Send handshake initiation message to the broker
+        out.println("HANDSHAKE_INIT " + ownBrokerAddress + " broker");
+        out.flush();  // Ensure the message is sent
+        System.out.println("Sent HANDSHAKE_INIT to broker at IP: " + remoteAddress);
+    
+        // Wait for the broker to respond with a handshake acknowledgment
+        String ack = in.readLine();
+        System.out.println("Received from broker: " + ack);
+    
+        // Check if the handshake was successful
+        if ("HANDSHAKE_ACK".equals(ack)) {
+            System.out.println("Broker handshake successful with broker at IP: " + remoteAddress);
+            return true;
+        } else {
+            System.err.println("Broker handshake failed with broker at IP: " + remoteAddress + ". Received: " + ack);
+            return false;
+        }
+    }
+     
 
     public void updateConnectedBrokers() {
         // Retrieve active brokers from the Directory Service
