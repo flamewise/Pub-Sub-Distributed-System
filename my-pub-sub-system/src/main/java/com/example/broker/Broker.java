@@ -156,10 +156,13 @@ public class Broker {
         if (topicSubscribers.containsKey(topicId)) {
             ConcurrentHashMap<String, Subscriber> subscribers = topicSubscribers.get(topicId);
     
+            // Retrieve the topic name
+            String topicName = topicNames.get(topicId);
+    
             if (subscribers != null && !subscribers.isEmpty()) {
                 // Deliver the message to local subscribers
                 for (Subscriber subscriber : subscribers.values()) {
-                    subscriber.receiveMessage(topicId, message);
+                    subscriber.receiveMessage(topicId, topicName, message);
                 }
             }
     
@@ -172,6 +175,7 @@ public class Broker {
             System.out.println("Topic not found: " + topicId);
         }
     }
+    
     
 
     public void addSubscriber(String topicId, Subscriber subscriber, String username, boolean synchronizedRequired) {
@@ -249,15 +253,15 @@ public class Broker {
         if (topicNames.isEmpty()) {
             out.println("No topics available.");
         } else {
-            out.println("Available topics:");
             for (String topicId : topicNames.keySet()) {
                 String topicName = topicNames.get(topicId);
-                //System.out.println("Topic ID: " + topicId + ", Name: " + topicName);
-                out.println("Topic ID: " + topicId + ", Name: " + topicName);
+                String publisherName = topicPublishers.get(topicId);  // Get the publisher name
+                out.println("Topic ID: " + topicId + ", Name: " + topicName + ", Publisher: " + publisherName);
             }
         }
         out.println("END");  // Indicate the end of the topic list
     }
+
 
     public void listSubscriptions(PrintWriter out, String subscriberId) {
         for (String topicId : topicSubscribers.keySet()) {

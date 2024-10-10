@@ -70,6 +70,26 @@ public class SubscriberApp {
             Subscriber subscriber = new Subscriber(username, out, in);
             System.out.println("Connected to broker at " + brokerHost + ":" + brokerPort);
 
+// Start a thread to listen for messages from the broker
+new Thread(() -> {
+    try {
+        String brokerMessage;
+        while ((brokerMessage = in.readLine()) != null) {
+            if (brokerMessage.startsWith("Topic ID:") || brokerMessage.equals("END")) {
+                // This is part of a command response (like list_all)
+                subscriber.addCommandResponse(brokerMessage);
+            } else {
+                // This is an asynchronous message
+                subscriber.handleAsyncMessage(brokerMessage);
+            }
+        }
+    } catch (IOException e) {
+        System.err.println("Connection closed by broker.");
+    }
+}).start();
+
+
+
             // Read user input and send commands to the broker
             System.out.println("Enter commands (list all, sub <topic_id>, current, unsub <topic_id>, exit):");
 
@@ -97,7 +117,7 @@ public class SubscriberApp {
 
                     case "list":
                         if (parts.length == 2 && "all".equals(parts[1])) {
-                            out.println("list_all");  // Request list of all topics
+                            //out.println("list_all");  // Request list of all topics
                             System.out.println("Requested list of all topics.");
                             subscriber.listAllTopics();
                         } else {

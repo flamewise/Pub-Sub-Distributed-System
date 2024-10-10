@@ -3,11 +3,16 @@ package com.example.subscriber;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 
 public class Subscriber {
     private final String username;
     private final PrintWriter out;
     private final BufferedReader in;
+    private final BlockingQueue<String> commandResponseQueue = new LinkedBlockingQueue<>(); // Queue for command responses
 
     public Subscriber(String username, PrintWriter out, BufferedReader in) {
         this.username = username;
@@ -15,14 +20,18 @@ public class Subscriber {
         this.in = in;
     }
 
-    // Method to receive a message on a topic
-    public void receiveMessage(String topicName, String message) {
-        out.println("Received message on topic " + topicName + ": " + message);
+    // Method to receive a message on a topic and display it in the correct format
+    public void receiveMessage(String topicId, String topicName, String message) {
+        // Get current time in the format dd/MM HH:mm:ss
+        String timestamp = new SimpleDateFormat("dd/MM HH:mm:ss").format(new Date());
+
+        // Format the message and print it to the subscriber's console
+        System.out.println(timestamp + " " + topicId + ":" + topicName + ": " + message);
     }
 
-    // Get the username
-    public String getUsername() {
-        return username;
+    // Method to handle async messages
+    public void handleAsyncMessage(String message) {
+        System.out.println("Async message from broker: " + message);
     }
 
     // Subscribe to a topic
@@ -38,37 +47,41 @@ public class Subscriber {
     // Method to list all available topics
     public void listAllTopics() {
         out.println("list_all");  // Send request to broker to list all available topics
+        out.flush();
 
-        // Receive and print the list of topics from the broker
         try {
             String response;
-            while ((response = in.readLine()) != null) {
-                if ("END".equals(response)) {
-                    break;  // End of topic list
-                }
+            // Block and read from the command response queue
+            while (!(response = commandResponseQueue.take()).equals("END")) {
                 System.out.println(response);  // Print each topic
             }
-        } catch (IOException e) {
+        } catch (InterruptedException e) {
             System.err.println("Error reading topic list: " + e.getMessage());
         }
     }
 
     // Method to show current subscriptions
     public void showCurrentSubscriptions() {
-        out.println("current");  // Send request to broker to list current subscriptions
+        out.println("current");
+        out.flush();
 
-        // Receive and print the list of current subscriptions from the broker
         try {
             String response;
-            while ((response = in.readLine()) != null) {
-                if ("END".equals(response)) {
-                    break;  // End of subscription list
-                }
+            // Block and read from the command response queue
+            while (!(response = commandResponseQueue.take()).equals("END")) {
                 System.out.println(response);  // Print each subscription
             }
-        } catch (IOException e) {
+        } catch (InterruptedException e) {
             System.err.println("Error reading current subscriptions: " + e.getMessage());
         }
     }
 
+    // Method to add command response to the queue
+    public void addCommandResponse(String response) {
+        try {
+            commandResponseQueue.put(response);
+        } catch (InterruptedException e) {
+            System.err.println("Error adding response to queue: " + e.getMessage());
+        }
+    }
 }

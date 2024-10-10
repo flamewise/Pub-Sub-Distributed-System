@@ -150,7 +150,7 @@ public class ClientHandler extends Thread {
         if (parts.length == 2) {
             Subscriber subscriber = new Subscriber(username, out, in);
             broker.addSubscriber(parts[1], subscriber, username, true);
-            out.println(username + " subscribed to topic: " + parts[1]);
+            //out.println(username + " subscribed to topic: " + parts[1]);
         } else {
             out.println("Usage: sub {topic_id}");
         }
