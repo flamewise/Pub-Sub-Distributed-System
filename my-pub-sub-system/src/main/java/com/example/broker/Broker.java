@@ -26,6 +26,7 @@ public class Broker {
     private final ExecutorService connectionPool;
     private final DirectoryServiceClient directoryServiceClient;
     private final ServerSocket serverSocket;
+    private final CopyOnWriteArrayList<ClientHandler> subClientHandlers;
 
     public Broker(int port, String directoryServiceAddress) throws IOException {
         this.topicSubscribers = new ConcurrentHashMap<>();
@@ -37,6 +38,7 @@ public class Broker {
         this.directoryServiceClient = new DirectoryServiceClient(directoryServiceAddress);
         this.serverSocket = new ServerSocket(port);
         this.ownBrokerAddress = serverSocket.getInetAddress().getHostAddress() + ":" + port;
+        this.subClientHandlers = new CopyOnWriteArrayList<>();
         System.out.println("Broker started on port: " + port);
 
         // Register the broker with the directory service
@@ -101,7 +103,11 @@ public class Broker {
             connectionPool.submit(new BrokerHandler(clientSocket, this, username));
         } else if ("publisher".equals(connectionType) || "subscriber".equals(connectionType)) {
             // Handle publisher or subscriber connection
-            connectionPool.submit(new ClientHandler(clientSocket, this, username, connectionType));
+            ClientHandler clientHandler = new ClientHandler(clientSocket, this, username, connectionType);
+            connectionPool.submit(clientHandler);
+            if ("subscriber".equals(connectionType)) {
+                subClientHandlers.add(clientHandler);
+            }
             System.out.println("Client connected as: " + connectionType);
         } else {
             System.out.println("Connection not know " + connectionType);

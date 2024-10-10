@@ -210,4 +210,13 @@ public class ClientHandler extends Thread {
             e.printStackTrace();
         }
     }
+
+    public String getConnectionType() {
+        return connectionType;
+    }
+    
+    public Socket getClientSocket() {
+        return clientSocket;
+    }
+    
 }
