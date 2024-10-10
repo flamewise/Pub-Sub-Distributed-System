@@ -292,6 +292,10 @@ public class Broker {
                 out.println(timestamp + " " + topicId + ":" + topicNames.get(topicId) + ": " + "Subscribed to: " + topicId + " (" + topicNames.get(topicId) + ")");
             }
         }
+        if (topicSubscribers.keySet().size() == 0){
+            String timestamp = new java.text.SimpleDateFormat("dd/MM HH:mm:ss").format(new java.util.Date());
+            out.println(timestamp + " " + "No any subscribed topic");
+        }
         out.println("END");
     }
 
@@ -435,10 +439,12 @@ public class Broker {
     }
     public void showSubscriberCount(String topicId, PrintWriter out) {
         ConcurrentHashMap<String, Subscriber> subscribers = topicSubscribers.get(topicId);
+        String timestamp = new java.text.SimpleDateFormat("dd/MM HH:mm:ss").format(new java.util.Date());
         if (subscribers != null) {
-            out.println("Subscriber count for topic " + topicId + ": " + subscribers.size());
+            out.println(timestamp + " " + topicId + ":" + this.topicNames.get(topicId) + ":" + "Subscriber count for topic " + topicId + ": " + subscribers.size());
         } else {
-            out.println("Topic not found: " + topicId);
+            
+            out.println(timestamp + " Topic not found: " + topicId);
         }
     }
 
