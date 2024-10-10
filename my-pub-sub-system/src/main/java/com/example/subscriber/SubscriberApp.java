@@ -100,7 +100,7 @@ new Thread(() -> {
                     case "sub":
                         if (parts.length == 2) {
                             subscriber.subscribe(parts[1]);  // Subscribe to a topic
-                            System.out.println("Subscribed to topic: " + parts[1]);
+                            //System.out.println("Subscribed to topic: " + parts[1]);
                         } else {
                             System.out.println("Usage: sub <topic_id>");
                         }
@@ -109,7 +109,7 @@ new Thread(() -> {
                     case "unsub":
                         if (parts.length == 2) {
                             subscriber.unsubscribe(parts[1]);  // Unsubscribe from a topic
-                            System.out.println("Unsubscribed from topic: " + parts[1]);
+                            //System.out.println("Unsubscribed from topic: " + parts[1]);
                         } else {
                             System.out.println("Usage: unsub <topic_id>");
                         }

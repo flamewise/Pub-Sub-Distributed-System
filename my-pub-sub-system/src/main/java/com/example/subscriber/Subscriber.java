@@ -31,7 +31,7 @@ public class Subscriber {
 
     // Method to handle async messages
     public void handleAsyncMessage(String message) {
-        System.out.println("Async message from broker: " + message);
+        System.out.println(message);
     }
 
     // Subscribe to a topic
@@ -70,6 +70,7 @@ public class Subscriber {
             // Block and read from the command response queue
             while (!(response = commandResponseQueue.take()).equals("END")) {
                 System.out.println(response);  // Print each subscription
+                System.out.println("Wait for response");
             }
         } catch (InterruptedException e) {
             System.err.println("Error reading current subscriptions: " + e.getMessage());

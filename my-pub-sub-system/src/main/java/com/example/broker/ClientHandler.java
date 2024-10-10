@@ -154,7 +154,10 @@ public class ClientHandler extends Thread {
     private void handleCreate(String[] parts) {
         if (parts.length == 3) {
             broker.createTopic(username, parts[1], parts[2]);
-            out.println("Topic created: " + parts[2] + " (ID: " + parts[1] + ")");
+            String topicId = parts[1];
+            String topicName = parts[2];
+            String timestamp = new java.text.SimpleDateFormat("dd/MM HH:mm:ss").format(new java.util.Date());
+            out.println(timestamp + " " + topicId + ":" + topicName + ":" + "Topic created: " + parts[2] + " (ID: " + parts[1] + ")");
         } else {
             out.println("Usage: create {topic_id} {topic_name}");
         }
@@ -168,7 +171,8 @@ public class ClientHandler extends Thread {
         if (parts.length == 3) {
             // Call the broker's method to publish the message and synchronize it across brokers
             broker.publishMessage(parts[1], parts[2], true); // `true` means synchronization is needed
-            out.println("Message published to topic: " + parts[1]);
+            String timestamp = new java.text.SimpleDateFormat("dd/MM HH:mm:ss").format(new java.util.Date());
+            out.println(timestamp + " " + parts[1] + ":" + broker.topicNames.get(parts[1]) + ": " + "Message published to topic: " + parts[1]);
         } else {
             out.println("Usage: publish {topic_id} {message}");
         }
@@ -180,22 +184,35 @@ public class ClientHandler extends Thread {
             String topicId = parts[1];
             // Add the subscriber ID (username) directly to the broker without creating a Subscriber object
             broker.addSubscriberId(topicId, username, true);
-            out.println(username + " subscribed to topic: " + topicId);
+    
+            // Get the current date and time in the desired format: dd/MM HH:mm:ss
+            String timestamp = new java.text.SimpleDateFormat("dd/MM HH:mm:ss").format(new java.util.Date());
+    
+            // Send subscription confirmation with date info
+            System.out.println(parts[0]+ " " + parts[1] + "qwdqwwd");
+            out.println(timestamp + " " + topicId + ":" + broker.topicNames.get(topicId) + ":" + username + " subscribed to topic: " + topicId);
         } else {
             out.println("Usage: sub {topic_id}");
         }
     }
     
-
     private void handleUnsubscribe(String[] parts) {
         if (parts.length == 2) {
+            String topicId = parts[1];
+    
             // Call the broker's unsubscribe method with synchronization set to true
-            broker.unsubscribe(parts[1], username, true);
-            out.println(username + " unsubscribed from topic: " + parts[1]);
+            broker.unsubscribe(topicId, username, true);
+    
+            // Get the current date and time in the desired format: dd/MM HH:mm:ss
+            String timestamp = new java.text.SimpleDateFormat("dd/MM HH:mm:ss").format(new java.util.Date());
+    
+            // Send unsubscription confirmation with date info
+            out.println(timestamp + " " + topicId + ":" + broker.topicNames.get(topicId) + ":" + username + " unsubscribed from topic: " + topicId);
         } else {
             out.println("Usage: unsub {topic_id}");
         }
     }
+    
     
     private void handleCurrent(String[] parts) {
         broker.listSubscriptions(out, username);
