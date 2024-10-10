@@ -59,12 +59,11 @@ public class BrokerHandler extends Thread {
             }
         }
     }
-
+    
     private void handleCommand(String command, String[] parts) {
         try {
             switch (command) {
                 case "synchronize_topic":
-                    
                     handleSynchronizeTopic(parts);
                     break;
                 case "synchronize_message":
@@ -76,14 +75,30 @@ public class BrokerHandler extends Thread {
                 case "synchronize_unsub":
                     handleSynchronizeUnsubscribe(parts);
                     break;
+                case "synchronize_delete":
+                    handleSynchronizeDelete(parts);
+                    break;
                 default:
                     System.out.println("Invalid command for broker, Command: " + command);
-                    // out.println("Invalid command for broker, Command: " + command);
             }
         } catch (Exception e) {
             out.println("Error processing broker command: " + e.getMessage());
         }
     }
+    
+    private void handleSynchronizeDelete(String[] parts) {
+        if (parts.length == 2) {
+            String topicId = parts[1];
+    
+            // Call the existing deleteTopic method in the broker
+            broker.deleteTopic(topicId, false); // false to avoid re-synchronizing the deletion
+    
+            System.out.println("Synchronized deletion of topic: " + topicId);
+        } else {
+            out.println("Invalid synchronize_delete message.");
+        }
+    }
+    
     
 
     private void handleSynchronizeTopic(String[] parts) {

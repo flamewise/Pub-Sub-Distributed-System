@@ -195,7 +195,6 @@ public class Broker {
         }
     }
     
-    
 
 
     public void synchronizeSubscription(String topicId, String subscriberId) {
@@ -424,5 +423,47 @@ public class Broker {
             out.println("Topic not found: " + topicId);
         }
     }
+
+    public void deleteTopic(String topicId, boolean synchronizedRequired) {
+        // Check if the topic exists
+        if (topicNames.containsKey(topicId)) {
+            // Remove the topic from the system
+            ConcurrentHashMap<String, Subscriber> subscribers = topicSubscribers.remove(topicId);
+            String topicName = topicNames.remove(topicId);
+            topicPublishers.remove(topicId);
     
+            // Notify all subscribers about the deletion
+            if (subscribers != null && !subscribers.isEmpty()) {
+                for (Subscriber subscriber : subscribers.values()) {
+                    subscriber.receiveMessage(topicId, topicName, "Topic deleted: " + topicName);
+                }
+            }
+    
+            System.out.println("Topic " + topicId + " deleted.");
+    
+            // If synchronization is required, notify other brokers
+            if (synchronizedRequired) {
+                synchronizeDelete(topicId);
+            }
+        } else {
+            System.out.println("Delete failed: Topic not found.");
+        }
+    }
+    
+    public void synchronizeDelete(String topicId) {
+        updateConnectedBrokers();
+    
+        // Synchronize topic deletion with all connected brokers
+        for (Socket brokerSocket : connectedBrokers) {
+            try {
+                PrintWriter out = new PrintWriter(brokerSocket.getOutputStream(), true);
+                out.println("synchronize_delete " + topicId);
+                out.flush();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+    
+
 }

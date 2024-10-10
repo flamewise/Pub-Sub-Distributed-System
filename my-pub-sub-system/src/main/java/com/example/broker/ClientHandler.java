@@ -97,11 +97,26 @@ public class ClientHandler extends Thread {
             case "show":
                 handleShow(parts);
                 break;
+            case "delete":
+                handleDelete(parts);
+                break;
             default:
                 out.println("Invalid command for publisher.");
         }
     }
-
+    
+    private void handleDelete(String[] parts) {
+        if (parts.length == 2) {
+            String topicId = parts[1];
+    
+            // Call the broker's deleteTopic method to delete the topic and notify subscribers
+            broker.deleteTopic(topicId, true);  // `true` ensures the deletion is synchronized with other brokers
+            
+            out.println("Topic " + topicId + " has been deleted.");
+        } else {
+            out.println("Usage: delete {topic_id}");
+        }
+    }      
 
     private void handleShow(String[] parts) {
         if (parts.length == 2) {
