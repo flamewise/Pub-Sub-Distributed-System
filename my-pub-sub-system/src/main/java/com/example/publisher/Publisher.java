@@ -20,8 +20,13 @@ public class Publisher {
         receiveBrokerResponse();
     }
 
-    // Method to publish a message to a topic
+    // Method to publish a message to a topic, limited to 100 characters
     public void publishMessage(String topicId, String message) {
+        if (message.length() > 100) {
+            System.out.println("Error: Message exceeds 100 characters. Please shorten your message.");
+            return;
+        }
+        
         out.println("publish " + topicId + " " + message);  // Send topic ID and message
         receiveBrokerResponse();
     }
