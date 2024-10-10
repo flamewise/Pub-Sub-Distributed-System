@@ -6,6 +6,8 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
 
+import com.example.subscriber.Subscriber;
+
 public class BrokerHandler extends Thread {
     private final Socket brokerSocket;
     private final Broker broker;
@@ -71,7 +73,8 @@ public class BrokerHandler extends Thread {
                     handleSynchronizeSubscription(parts);
                     break;
                 default:
-                    out.println("Invalid command for broker.");
+                    System.out.println("Invalid command for broker, Command: " + command);
+                    //out.println("Invalid command for broker, Command: " + command);
             }
         } catch (Exception e) {
             out.println("Error processing broker command: " + e.getMessage());
@@ -94,8 +97,8 @@ public class BrokerHandler extends Thread {
         if (parts.length == 3) {
             String topicId = parts[1];
             String message = parts[2];
-            broker.synchronizeMessage(topicId, message);
-            out.println("Synchronized message to topic: " + topicId);
+            broker.publishMessage(topicId, message, false);
+            //out.println("Synchronized message to topic: " + topicId); only send proper command
         } else {
             out.println("Invalid synchronize_message message.");
         }
@@ -105,8 +108,15 @@ public class BrokerHandler extends Thread {
         if (parts.length == 3) {
             String topicId = parts[1];
             String subscriberId = parts[2];
-            broker.synchronizeSubscription(topicId, subscriberId);
-            out.println("Synchronized subscription for subscriber: " + subscriberId + " to topic: " + topicId);
+
+            // Create a placeholder Subscriber object, since the actual object isn't shared between brokers
+            Subscriber subscriber = new Subscriber(subscriberId, new PrintWriter(System.out, true)); // PrintWriter just for placeholder
+            
+            // Add the subscriber with synchronization set to false to prevent recursion
+            broker.addSubscriber(topicId, subscriber, subscriberId, false);
+            
+            // Optionally, log the action or perform any necessary steps here
+            System.out.println("Synchronized subscription for subscriber: " + subscriberId + " to topic: " + topicId);
         } else {
             out.println("Invalid synchronize_sub message.");
         }

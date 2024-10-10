@@ -104,6 +104,7 @@ public class Broker {
             connectionPool.submit(new ClientHandler(clientSocket, this, username, connectionType));
             System.out.println("Client connected as: " + connectionType);
         } else {
+            System.out.println("Connection not know " + connectionType);
             System.err.println("Unknown connection type: " + connectionType);
             return false;
         }
@@ -150,7 +151,7 @@ public class Broker {
     
     
 
-    public void publishMessage(String username, String topicId, String message, boolean synchronizedRequired) {
+    public void publishMessage(String topicId, String message, boolean synchronizedRequired) {
         // Check if the topic exists and has subscribers
         if (topicSubscribers.containsKey(topicId)) {
             ConcurrentHashMap<String, Subscriber> subscribers = topicSubscribers.get(topicId);
@@ -173,7 +174,7 @@ public class Broker {
     }
     
 
-    public void addSubscriber(String topicId, Subscriber subscriber, String username) {
+    public void addSubscriber(String topicId, Subscriber subscriber, String username, boolean synchronizedRequired) {
         // Check if the topic already has a subscriber list; if not, create one
         ConcurrentHashMap<String, Subscriber> subscribers = topicSubscribers.computeIfAbsent(topicId, k -> new ConcurrentHashMap<>());
         
@@ -182,13 +183,13 @@ public class Broker {
             subscribers.put(username, subscriber);
             subscriberUsernames.put(username, topicId);
             
-            // Synchronize the subscription across all brokers immediately
-            synchronizeSubscription(topicId, username);
+            if (synchronizedRequired) {
+                // Synchronize the subscription across all brokers immediately
+                synchronizeSubscription(topicId, username);
+            }
         }
     }
     
-    
-
     public void unsubscribe(String topicId, String username) {
         ConcurrentHashMap<String, Subscriber> subscribers = topicSubscribers.get(topicId);
         if (subscribers != null && subscribers.containsKey(username)) {
@@ -328,8 +329,8 @@ public class Broker {
     
             System.out.println("Broker handshake successful with " + brokerAddress);
     
-            // Now submit the ClientHandler task to handle the broker communication asynchronously
-            connectionPool.submit(new ClientHandler(brokerSocket, this, brokerIP + ":" + brokerPort, "broker"));
+            // Now submit the BrokerHandler task to handle the broker communication asynchronously
+            connectionPool.submit(new BrokerHandler(brokerSocket, this, brokerIP + ":" + brokerPort));
         } catch (IOException e) {
             System.out.println("Error connecting to broker at " + brokerAddress + ": " + e.getMessage());
         }

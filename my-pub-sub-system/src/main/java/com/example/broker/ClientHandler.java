@@ -126,7 +126,7 @@ public class ClientHandler extends Thread {
     private void handlePublish(String[] parts) {
         if (parts.length == 3) {
             // Call the broker's method to publish the message and synchronize it across brokers
-            broker.publishMessage(username, parts[1], parts[2], true); // `true` means synchronization is needed
+            broker.publishMessage(parts[1], parts[2], true); // `true` means synchronization is needed
             out.println("Message published to topic: " + parts[1]);
         } else {
             out.println("Usage: publish {topic_id} {message}");
@@ -137,7 +137,7 @@ public class ClientHandler extends Thread {
     private void handleSubscribe(String[] parts) {
         if (parts.length == 2) {
             Subscriber subscriber = new Subscriber(username, out);
-            broker.addSubscriber(parts[1], subscriber, username);
+            broker.addSubscriber(parts[1], subscriber, username, true);
             out.println(username + " subscribed to topic: " + parts[1]);
         } else {
             out.println("Usage: sub {topic_id}");
