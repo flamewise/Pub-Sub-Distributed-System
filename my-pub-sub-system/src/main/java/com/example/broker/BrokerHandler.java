@@ -72,14 +72,18 @@ public class BrokerHandler extends Thread {
                 case "synchronize_sub":
                     handleSynchronizeSubscription(parts);
                     break;
+                case "synchronize_unsub":
+                    handleSynchronizeUnsubscribe(parts);
+                    break;
                 default:
                     System.out.println("Invalid command for broker, Command: " + command);
-                    //out.println("Invalid command for broker, Command: " + command);
+                    // out.println("Invalid command for broker, Command: " + command);
             }
         } catch (Exception e) {
             out.println("Error processing broker command: " + e.getMessage());
         }
     }
+    
 
     private void handleSynchronizeTopic(String[] parts) {
         if (parts.length == 4) {  // Now expecting 4 parts (synchronize_topic <topicId> <topicName> <username>)
@@ -89,6 +93,21 @@ public class BrokerHandler extends Thread {
             broker.createSimpleTopic(username, topicId, topicName); // Only create topic, no further synchronized topic call to prevent recursion
         } else {
             out.println("Invalid synchronize_topic message.");
+        }
+    }
+    
+    private void handleSynchronizeUnsubscribe(String[] parts) {
+        if (parts.length == 3) {
+            String topicId = parts[1];
+            String subscriberId = parts[2];
+    
+            // Unsubscribe the subscriber from the topic with synchronization disabled to prevent recursion
+            broker.unsubscribe(topicId, subscriberId, false);
+    
+            // Optionally log the action or perform any necessary steps here
+            System.out.println("Synchronized unsubscription for subscriber: " + subscriberId + " from topic: " + topicId);
+        } else {
+            out.println("Invalid synchronize_unsub message.");
         }
     }
     

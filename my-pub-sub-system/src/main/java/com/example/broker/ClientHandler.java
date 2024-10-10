@@ -146,12 +146,14 @@ public class ClientHandler extends Thread {
 
     private void handleUnsubscribe(String[] parts) {
         if (parts.length == 2) {
-            broker.unsubscribe(parts[1], username);
+            // Call the broker's unsubscribe method with synchronization set to true
+            broker.unsubscribe(parts[1], username, true);
             out.println(username + " unsubscribed from topic: " + parts[1]);
         } else {
             out.println("Usage: unsub {topic_id}");
         }
     }
+    
 
     private void handleCurrent(String[] parts) {
         broker.listSubscriptions(out, username);

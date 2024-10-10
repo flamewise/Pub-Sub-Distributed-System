@@ -189,14 +189,60 @@ public class Broker {
             }
         }
     }
+
+
+    public void synchronizeSubscription(String topicId, String subscriberId) {
+        // Update the list of connected brokers before synchronization
+        this.updateConnectedBrokers();
+        
+        // Synchronize subscription with all connected brokers
+        for (Socket brokerSocket : connectedBrokers) {
+            try {
+                PrintWriter out = new PrintWriter(brokerSocket.getOutputStream(), true);
+                // Send the synchronization message to the connected broker
+                out.println("synchronize_sub " + topicId + " " + subscriberId);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
     
-    public void unsubscribe(String topicId, String username) {
+    
+    public void unsubscribe(String topicId, String username, boolean synchronizedRequired) {
         ConcurrentHashMap<String, Subscriber> subscribers = topicSubscribers.get(topicId);
         if (subscribers != null && subscribers.containsKey(username)) {
             subscribers.remove(username);
             subscriberUsernames.remove(username);
+            System.out.println(username + " unsubscribed from topic: " + topicId);
+    
+            // If synchronization is required, synchronize the unsubscription across brokers
+            if (synchronizedRequired) {
+                synchronizeUnsubscription(topicId, username);
+            }
+        } else {
+            System.out.println("Unsubscription failed: No subscription found for " + username + " on topic " + topicId);
         }
     }
+    
+
+    public void synchronizeUnsubscription(String topicId, String subscriberId) {
+        // Update the list of connected brokers before synchronization
+        this.updateConnectedBrokers();
+    
+        // Synchronize unsubscription with all connected brokers
+        for (Socket brokerSocket : connectedBrokers) {
+            try {
+                PrintWriter out = new PrintWriter(brokerSocket.getOutputStream(), true);
+                // Send the synchronization message to the connected broker
+                out.println("synchronize_unsub " + topicId + " " + subscriberId);
+                out.flush();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+      
+    
 
     // Method to list all topics to a subscriber
     public void listAllTopics(PrintWriter out) {
@@ -280,22 +326,6 @@ public class Broker {
         }
     }
 
-    public void synchronizeSubscription(String topicId, String subscriberId) {
-        // Update the list of connected brokers before synchronization
-        this.updateConnectedBrokers();
-        
-        // Synchronize subscription with all connected brokers
-        for (Socket brokerSocket : connectedBrokers) {
-            try {
-                PrintWriter out = new PrintWriter(brokerSocket.getOutputStream(), true);
-                // Send the synchronization message to the connected broker
-                out.println("synchronize_sub " + topicId + " " + subscriberId);
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-    }
-    
     public void connectToBroker(String brokerAddress) {
         String[] parts = brokerAddress.split(":");
         String brokerIP = parts[0];
