@@ -3,6 +3,7 @@ package com.example.subscriber;
 import com.example.directory.DirectoryServiceClient;
 
 import java.io.BufferedReader;
+import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
@@ -58,11 +59,16 @@ public class SubscriberApp {
             PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
             BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
 
-            // Send the username and connection type to the broker after connection
-            out.println(username + " subscriber");
+            // Perform handshake with the broker
+            if (!performHandshake(out, in, socket, username)) {
+                System.err.println("Handshake with broker failed. Closing connection.");
+                socket.close();
+                return;
+            }
 
-            // Create Subscriber object
+            // Now the Subscriber can interact with the broker
             Subscriber subscriber = new Subscriber(username, out);
+            System.out.println("Connected to broker at " + brokerHost + ":" + brokerPort);
 
             // Start a thread to listen for messages from the broker
             new Thread(() -> {
@@ -129,6 +135,34 @@ public class SubscriberApp {
 
         } catch (Exception e) {
             e.printStackTrace();
+        }
+    }
+
+    // Handshake method for the subscriber
+    private static boolean performHandshake(PrintWriter out, BufferedReader in, Socket brokerSocket, String username) throws IOException {
+        // Retrieve and print socket information
+        String localAddress = brokerSocket.getLocalAddress().toString();
+        int localPort = brokerSocket.getLocalPort();
+        String remoteAddress = brokerSocket.getRemoteSocketAddress().toString();
+        System.out.println("Local Address: " + localAddress + ", Local Port: " + localPort);
+        System.out.println("Remote Address: " + remoteAddress);
+
+        // Send handshake initiation message to the broker with username and connection type
+        out.println("HANDSHAKE_INIT " + username + " subscriber");
+        out.flush();  // Ensure the message is sent
+        System.out.println("Sent HANDSHAKE_INIT to broker at IP: " + remoteAddress);
+
+        // Wait for the broker to respond with a handshake acknowledgment
+        String ack = in.readLine();
+        System.out.println("Received from broker: " + ack);
+
+        // Check if the handshake was successful
+        if ("HANDSHAKE_ACK".equals(ack)) {
+            System.out.println("Handshake successful with broker at IP: " + remoteAddress);
+            return true;
+        } else {
+            System.err.println("Handshake failed with broker at IP: " + remoteAddress + ". Received: " + ack);
+            return false;
         }
     }
 }
