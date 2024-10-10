@@ -266,6 +266,7 @@ public class Broker {
                 out.println("Subscribed to: " + topicId + " (" + topicNames.get(topicId) + ")");
             }
         }
+        out.println("END");
     }
 
     public void synchronizeTopic(String username, String topicId, String topicName) {

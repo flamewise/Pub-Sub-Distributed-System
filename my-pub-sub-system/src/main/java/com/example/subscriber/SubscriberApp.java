@@ -67,20 +67,8 @@ public class SubscriberApp {
             }
 
             // Now the Subscriber can interact with the broker
-            Subscriber subscriber = new Subscriber(username, out);
+            Subscriber subscriber = new Subscriber(username, out, in);
             System.out.println("Connected to broker at " + brokerHost + ":" + brokerPort);
-
-            // Start a thread to listen for messages from the broker
-            new Thread(() -> {
-                try {
-                    String brokerMessage;
-                    while ((brokerMessage = in.readLine()) != null) {
-                        System.out.println("Broker: " + brokerMessage);
-                    }
-                } catch (Exception e) {
-                    System.err.println("Connection closed by broker.");
-                }
-            }).start();
 
             // Read user input and send commands to the broker
             System.out.println("Enter commands (list all, sub <topic_id>, current, unsub <topic_id>, exit):");
@@ -111,16 +99,16 @@ public class SubscriberApp {
                         if (parts.length == 2 && "all".equals(parts[1])) {
                             out.println("list_all");  // Request list of all topics
                             System.out.println("Requested list of all topics.");
+                            subscriber.listAllTopics();
                         } else {
                             System.out.println("Usage: list all");
                         }
                         break;
 
                     case "current":
-                        out.println("current");  // Request the current subscriptions for this subscriber
-                        System.out.println("Requested list of current subscriptions.");
+                        subscriber.showCurrentSubscriptions();  // Request and display the current subscriptions
                         break;
-
+                        
                     case "exit":
                         out.println("exit");  // Close the connection and exit
                         socket.close();

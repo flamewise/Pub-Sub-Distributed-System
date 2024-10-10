@@ -14,13 +14,21 @@ public class ClientHandler extends Thread {
     private final String username;  // Captured from the first line sent by the client
     private final String connectionType;  // Stores the type of connection (publisher, subscriber, or broker)
     private PrintWriter out;
+    private BufferedReader in;
 
     public ClientHandler(Socket socket, Broker broker, String username, String connectionType) {
-        //System.out.println("Client Connect"+username + " " + connectionType);
         this.clientSocket = socket;
         this.broker = broker;
         this.username = username;
         this.connectionType = connectionType;
+        
+        try {
+            // Initialize BufferedReader and PrintWriter from clientSocket's input/output streams
+            this.in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+            this.out = new PrintWriter(clientSocket.getOutputStream(), true);
+        } catch (IOException e) {
+            System.err.println("Error initializing input/output streams for client: " + e.getMessage());
+        }
     }
 
     @Override
@@ -105,7 +113,7 @@ public class ClientHandler extends Thread {
                 break;
             case "list_all":
                 // New case to handle topic listing
-                broker.listAllTopics(out);
+                handleListAll();
                 break;
             default:
                 out.println("Invalid command for subscriber.");
@@ -123,6 +131,10 @@ public class ClientHandler extends Thread {
         }
     }
 
+    private void handleListAll() {
+        broker.listAllTopics(out);
+    }
+
     private void handlePublish(String[] parts) {
         if (parts.length == 3) {
             // Call the broker's method to publish the message and synchronize it across brokers
@@ -136,7 +148,7 @@ public class ClientHandler extends Thread {
 
     private void handleSubscribe(String[] parts) {
         if (parts.length == 2) {
-            Subscriber subscriber = new Subscriber(username, out);
+            Subscriber subscriber = new Subscriber(username, out, in);
             broker.addSubscriber(parts[1], subscriber, username, true);
             out.println(username + " subscribed to topic: " + parts[1]);
         } else {
@@ -154,16 +166,9 @@ public class ClientHandler extends Thread {
         }
     }
     
-
     private void handleCurrent(String[] parts) {
         broker.listSubscriptions(out, username);
     }
-
-
-
-
-
-
 
 
     private void closeClientSocket() {

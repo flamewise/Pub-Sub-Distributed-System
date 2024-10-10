@@ -129,7 +129,7 @@ public class BrokerHandler extends Thread {
             String subscriberId = parts[2];
 
             // Create a placeholder Subscriber object, since the actual object isn't shared between brokers
-            Subscriber subscriber = new Subscriber(subscriberId, new PrintWriter(System.out, true)); // PrintWriter just for placeholder
+            Subscriber subscriber = new Subscriber(subscriberId, new PrintWriter(System.out, true), new BufferedReader(null)); // PrintWriter/BufferReader just for placeholder
             
             // Add the subscriber with synchronization set to false to prevent recursion
             broker.addSubscriber(topicId, subscriber, subscriberId, false);
