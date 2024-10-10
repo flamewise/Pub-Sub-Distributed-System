@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class ClientHandler extends Thread {
     private final Socket clientSocket;
@@ -219,4 +220,9 @@ public class ClientHandler extends Thread {
         return clientSocket;
     }
     
+    public String getUserName(){
+        return username;
+    }
+
+
 }

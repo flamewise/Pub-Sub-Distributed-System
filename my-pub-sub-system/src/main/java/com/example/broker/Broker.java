@@ -156,19 +156,29 @@ public class Broker {
     }
     
     
-
     public void publishMessage(String topicId, String message, boolean synchronizedRequired) {
         // Check if the topic exists and has subscribers
         if (topicSubscribers.containsKey(topicId)) {
-            ConcurrentHashMap<String, Subscriber> subscribers = topicSubscribers.get(topicId);
-    
             // Retrieve the topic name
             String topicName = topicNames.get(topicId);
-    
-            if (subscribers != null && !subscribers.isEmpty()) {
-                // Deliver the message to local subscribers
-                for (Subscriber subscriber : subscribers.values()) {
-                    subscriber.receiveMessage(topicId, topicName, message);
+            
+            // Check each subscriber in subClientHandlers
+            for (ClientHandler clientHandler : subClientHandlers) {
+                String subscriberUsername = clientHandler.getUserName();
+                ConcurrentHashMap<String, Subscriber> subscribers = topicSubscribers.get(topicId);
+                
+                // Check if the subscriber is subscribed to the topic
+                if (subscribers != null && subscribers.containsKey(subscriberUsername)) {
+                    try {
+                        // Send the message to the subscriber
+                        PrintWriter out = new PrintWriter(clientHandler.getClientSocket().getOutputStream(), true);
+                        out.println("Message on topic " + topicId + ": " + message);
+                        out.flush();
+                        System.out.println("Message sent to subscriber: " + subscriberUsername + " on topic: " + topicId);
+                    } catch (IOException e) {
+                        System.err.println("Error sending message to subscriber: " + subscriberUsername);
+                        e.printStackTrace();
+                    }
                 }
             }
     
@@ -181,7 +191,6 @@ public class Broker {
             System.out.println("Topic not found: " + topicId);
         }
     }
-    
     
 
     public void addSubscriberId(String topicId, String subscriberId, boolean synchronizedRequired) {
