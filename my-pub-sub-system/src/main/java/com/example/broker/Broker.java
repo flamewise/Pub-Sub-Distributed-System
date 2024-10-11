@@ -43,8 +43,9 @@ public class Broker {
     private final CopyOnWriteArrayList<ClientHandler> subClientHandlers;
     private final CopyOnWriteArrayList<ClientHandler> pubClientHandlers;
     private final CopyOnWriteArrayList<BrokerHandler> brokerBrokerHandlers;
+    
     private boolean isLocked;
-    private int TOTAL_SUB_LIMIT = 10;
+    private int TOTAL_SUB_LIMIT = 3;
     private int TOTAL_PUB_LIMIT = 5;
 
 
@@ -584,43 +585,49 @@ public class Broker {
         return isLocked;
     }
 
-    private  boolean requestLockFromAllBrokers() {
+    private boolean requestLockFromAllBrokers() {
         updateConnectedBrokers();
         boolean lockAcquired = true;
         List<Socket> successfullyLockedBrokers = new ArrayList<>();
-
-        for (Socket brokerSocket : connectedBrokers) {
+    
+        for (BrokerHandler brokerHandler : brokerBrokerHandlers) {
+            Socket brokerSocket = brokerHandler.getSocket();  // Get the broker's socket
+    
             try {
                 PrintWriter out = new PrintWriter(brokerSocket.getOutputStream(), true);
-                BufferedReader in = new BufferedReader(new InputStreamReader(brokerSocket.getInputStream()));
-
-                // Send lock request
-                out.println("request_lock");
-
-                // Wait for the acknowledgment
-                String response = in.readLine();
+                out.println("request_lock");  // Send lock request
+                out.flush();
+    
+                // Poll the response map in BrokerHandler to get the lock acknowledgment
+                String response;
+                while ((response = brokerHandler.getResponse("request_lock")) == null) {
+                    Thread.sleep(50);  // Short delay before re-checking
+                }
+    
+                // Check if the response is "lock_ack"
                 if (!"lock_ack".equals(response)) {
                     lockAcquired = false;
                     break;
                 }
-
+    
                 // If lock was acquired, add the broker to the list of locked brokers
                 successfullyLockedBrokers.add(brokerSocket);
-
-            } catch (IOException e) {
+    
+            } catch (IOException | InterruptedException e) {
                 System.err.println("Error requesting lock from broker: " + e.getMessage());
                 lockAcquired = false;
                 break;
             }
         }
-
+    
         // If failed to acquire the lock, release all locks acquired so far
         if (!lockAcquired) {
             releaseLocksFromBrokers(successfullyLockedBrokers);
         }
-
+    
         return lockAcquired;
     }
+    
 
     private void releaseLocksFromBrokers(List<Socket> lockedBrokers) {
         for (Socket brokerSocket : lockedBrokers) {
@@ -664,23 +671,27 @@ public class Broker {
     
             try {
                 PrintWriter out = new PrintWriter(brokerSocket.getOutputStream(), true);
-                BufferedReader in = new BufferedReader(new InputStreamReader(brokerSocket.getInputStream()));
-    
+                
                 // Send a request to the broker to get its local subscriber count
                 out.println("get_local_subscriber_count");
+                out.flush();
     
-                // Read the response from the broker
-                String response = in.readLine();
-                if (response != null) {
-                    try {
-                        int brokerSubscriberCount = Integer.parseInt(response);
-                        totalSubscriberCount += brokerSubscriberCount;
-                        System.out.println("Received subscriber count: " + brokerSubscriberCount);
-                    } catch (NumberFormatException e) {
-                        System.err.println("Invalid subscriber count received from broker.");
-                    }
+                // Poll the response map in BrokerHandler to get the result
+                String response;
+                while ((response = brokerHandler.getResponse("get_local_subscriber_count")) == null) {
+                    Thread.sleep(50); // Short delay before re-checking
                 }
-            } catch (IOException e) {
+    
+                // Parse the response
+                try {
+                    int brokerSubscriberCount = Integer.parseInt(response);
+                    totalSubscriberCount += brokerSubscriberCount;
+                    System.out.println("Received subscriber count: " + brokerSubscriberCount);
+                } catch (NumberFormatException e) {
+                    System.err.println("Invalid subscriber count received from broker: " + response);
+                }
+                
+            } catch (IOException | InterruptedException e) {
                 System.err.println("Error communicating with broker: " + e.getMessage());
             }
         }

@@ -16,6 +16,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
+import java.util.concurrent.ConcurrentHashMap;
 
 import com.example.subscriber.Subscriber;
 
@@ -24,11 +25,13 @@ public class BrokerHandler extends Thread {
     private final Broker broker;
     private final String brokerAddress;
     private PrintWriter out;
+    private final ConcurrentHashMap<String, String> responseMap; // Store responses
 
     public BrokerHandler(Socket brokerSocket, Broker broker, String brokerAddress) {
         this.brokerSocket = brokerSocket;
         this.broker = broker;
         this.brokerAddress = brokerAddress;
+        this.responseMap = new ConcurrentHashMap<>();
     }
 
     @Override
@@ -37,7 +40,10 @@ public class BrokerHandler extends Thread {
              PrintWriter out = new PrintWriter(brokerSocket.getOutputStream(), true)) {
 
             this.out = out;
-            handleBrokerCommands(in);
+            String inputLine;
+            while ((inputLine = in.readLine()) != null) {
+                handleResponseOrCommand(inputLine);  // Process incoming commands or responses
+            }
 
         } catch (IOException e) {
             System.err.println("Broker disconnected abruptly: " + brokerSocket.getInetAddress());
@@ -46,29 +52,26 @@ public class BrokerHandler extends Thread {
         }
     }
 
-    private void handleBrokerCommands(BufferedReader in) throws IOException {
-        // Print the IP address and port of the broker
-        String brokerIP = brokerSocket.getInetAddress().getHostAddress();
-        int brokerPort = brokerSocket.getPort();
-        System.out.println("Handling commands from broker at IP: " + brokerIP + " Port: " + brokerPort);
-        System.out.println("Handling commands from broker at IP: " + brokerIP + " Port: " + brokerPort + 
-                   ". Full socket info: Local Address: " + brokerSocket.getLocalAddress() + 
-                   " Local Port: " + brokerSocket.getLocalPort() + 
-                   " Remote Address: " + brokerSocket.getRemoteSocketAddress());
-
-
-        String inputLine;
-        while ((inputLine = in.readLine()) != null) {
-            System.out.println("Broker Command: " + inputLine + " from broker at IP: " + brokerIP + " Port: " + brokerPort);
+    private void handleResponseOrCommand(String inputLine) {
+        System.out.println("Received message: " + inputLine);
+        
+        // Check for numeric responses like get_local_subscriber_count
+        if (inputLine.matches("\\d+")) { // If it's a numeric response, store it as a subscriber count
+            responseMap.put("get_local_subscriber_count", inputLine);
+        } else if ("lock_ack".equals(inputLine)) { // Store lock acknowledgment response
+            responseMap.put("request_lock", "lock_ack");
+        } else {
             String[] parts = inputLine.split(" ");
-
             if (parts.length > 0) {
                 String command = parts[0];
-                handleCommand(command, parts);
-            } else {
-                out.println("Invalid broker command.");
+                handleCommand(command, parts); // Handle normal broker commands
             }
         }
+    }
+    
+
+    public String getResponse(String command) {
+        return responseMap.remove(command); // Retrieve and remove response
     }
     
     private void handleCommand(String command, String[] parts) {
