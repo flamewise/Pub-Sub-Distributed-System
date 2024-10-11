@@ -682,7 +682,7 @@ public class Broker {
                     Thread.sleep(50); // Short delay before re-checking
                 }
     
-                // Parse the response
+                // Parse the response as an integer
                 try {
                     int brokerSubscriberCount = Integer.parseInt(response);
                     totalSubscriberCount += brokerSubscriberCount;
@@ -690,7 +690,7 @@ public class Broker {
                 } catch (NumberFormatException e) {
                     System.err.println("Invalid subscriber count received from broker: " + response);
                 }
-                
+    
             } catch (IOException | InterruptedException e) {
                 System.err.println("Error communicating with broker: " + e.getMessage());
             }
@@ -699,32 +699,36 @@ public class Broker {
         return totalSubscriberCount;  // Return the total count of subscribers across all brokers
     }
     
-
     public int getTotalPublisherCount() {
         int totalPublisherCount = getLocalPublisherCount();  // Start with the local publisher count
+        System.out.println(brokerBrokerHandlers.size() + " brokers connected.");
     
         for (BrokerHandler brokerHandler : brokerBrokerHandlers) {
             Socket brokerSocket = brokerHandler.getSocket();  // Get the broker's socket
     
             try {
                 PrintWriter out = new PrintWriter(brokerSocket.getOutputStream(), true);
-                BufferedReader in = new BufferedReader(new InputStreamReader(brokerSocket.getInputStream()));
-    
+                
                 // Send a request to the broker to get its local publisher count
                 out.println("get_local_publisher_count");
+                out.flush();
     
-                // Read the response from the broker
-                String response = in.readLine();
-                if (response != null) {
-                    try {
-                        int brokerPublisherCount = Integer.parseInt(response);
-                        totalPublisherCount += brokerPublisherCount;
-                        System.out.println("Received publisher count: " + brokerPublisherCount);
-                    } catch (NumberFormatException e) {
-                        System.err.println("Invalid publisher count received from broker.");
-                    }
+                // Poll the response map in BrokerHandler to get the result
+                String response;
+                while ((response = brokerHandler.getResponse("get_local_publisher_count")) == null) {
+                    Thread.sleep(50); // Short delay before re-checking
                 }
-            } catch (IOException e) {
+    
+                // Parse the response as an integer
+                try {
+                    int brokerPublisherCount = Integer.parseInt(response);
+                    totalPublisherCount += brokerPublisherCount;
+                    System.out.println("Received publisher count: " + brokerPublisherCount);
+                } catch (NumberFormatException e) {
+                    System.err.println("Invalid publisher count received from broker: " + response);
+                }
+    
+            } catch (IOException | InterruptedException e) {
                 System.err.println("Error communicating with broker: " + e.getMessage());
             }
         }
@@ -732,7 +736,6 @@ public class Broker {
         return totalPublisherCount;  // Return the total count of publishers across all brokers
     }
     
-        
 
     public int getLocalPublisherCount() {
         return this.pubClientHandlers.size();

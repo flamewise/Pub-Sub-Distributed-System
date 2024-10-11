@@ -55,19 +55,38 @@ public class BrokerHandler extends Thread {
     private void handleResponseOrCommand(String inputLine) {
         System.out.println("Received message: " + inputLine);
         
-        // Check for numeric responses like get_local_subscriber_count
-        if (inputLine.matches("\\d+")) { // If it's a numeric response, store it as a subscriber count
-            responseMap.put("get_local_subscriber_count", inputLine);
-        } else if ("lock_ack".equals(inputLine)) { // Store lock acknowledgment response
+        // Check for specific responses like subscriber_count or publisher_count
+        if (inputLine.startsWith("subscriber_count")) {  // Handle subscriber count
+            String[] parts = inputLine.split(" ");
+            if (parts.length == 2) {
+                try {
+                    int count = Integer.parseInt(parts[1]);
+                    responseMap.put("get_local_subscriber_count", String.valueOf(count));
+                } catch (NumberFormatException e) {
+                    System.err.println("Invalid subscriber count received: " + parts[1]);
+                }
+            }
+        } else if (inputLine.startsWith("publisher_count")) {  // Handle publisher count
+            String[] parts = inputLine.split(" ");
+            if (parts.length == 2) {
+                try {
+                    int count = Integer.parseInt(parts[1]);
+                    responseMap.put("get_local_publisher_count", String.valueOf(count));
+                } catch (NumberFormatException e) {
+                    System.err.println("Invalid publisher count received: " + parts[1]);
+                }
+            }
+        } else if ("lock_ack".equals(inputLine)) {  // Store lock acknowledgment response
             responseMap.put("request_lock", "lock_ack");
         } else {
             String[] parts = inputLine.split(" ");
             if (parts.length > 0) {
                 String command = parts[0];
-                handleCommand(command, parts); // Handle normal broker commands
+                handleCommand(command, parts);  // Handle normal broker commands
             }
         }
     }
+    
     
 
     public String getResponse(String command) {
@@ -101,6 +120,9 @@ public class BrokerHandler extends Thread {
                 case "get_local_subscriber_count":
                     handleGetLocalSubscriberCount();
                     break;
+                case "get_local_publisher_count":
+                    handleGetLocalPublisherCount();
+                    break;
                 default:
                     System.out.println("Invalid command for broker, Command: " + command);
             }
@@ -111,10 +133,16 @@ public class BrokerHandler extends Thread {
 
     private void handleGetLocalSubscriberCount() {
         int localSubscriberCount = broker.getLocalSubscriberCount();
-        out.println(localSubscriberCount);  // Send the local subscriber count back to the requesting broker
+        out.println("subscriber_count " + localSubscriberCount);  // Send the local subscriber count back to the requesting broker
         out.flush();  // Ensure the message is sent
     }
     
+
+    private void handleGetLocalPublisherCount() {
+        int localPublisherCount = broker.getLocalPublisherCount();
+        out.println("publisher_count " + localPublisherCount);  // Send the local publisher count back to the requesting broker
+        out.flush();  // Ensure the message is sent
+    }    
 
     private void handleLockRequest() {
         // Lock this broker
