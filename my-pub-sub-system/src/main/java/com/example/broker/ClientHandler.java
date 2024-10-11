@@ -190,6 +190,20 @@ public class ClientHandler extends Thread {
 
     private void handlePublish(String[] parts) {
         if (parts.length >= 3) {
+            String topicId = parts[1];
+    
+            // Check if the topic exists in the broker before publishing
+            if (!broker.topicExists(topicId)) {
+                out.println("error: Topic " + topicId + " does not exist.");
+                return;
+            }
+    
+            // Check if the current user is the owner of the topic
+            if (!broker.isTopicOwner(topicId, username)) {
+                out.println("error: You are not the owner of topic " + topicId + ".");
+                return;
+            }
+    
             // Combine all elements from parts[2] onward into a single message string
             StringBuilder messageBuilder = new StringBuilder(parts[2]);
             for (int i = 3; i < parts.length; i++) {
@@ -198,47 +212,52 @@ public class ClientHandler extends Thread {
             String message = messageBuilder.toString();
             
             // Call the broker's method to publish the message and synchronize it across brokers
-            broker.publishMessage(parts[1], message, true); // `true` means synchronization is needed
+            broker.publishMessage(topicId, message, true); // `true` means synchronization is needed
             
+            // Generate timestamp and confirm successful publishing
             String timestamp = new java.text.SimpleDateFormat("dd/MM HH:mm:ss").format(new java.util.Date());
-            out.println(timestamp + " " + parts[1] + ":" + broker.topicNames.get(parts[1]) + ": " + "Message published to topic: " + parts[1]);
+            out.println(timestamp + " " + topicId + ":" + broker.topicNames.get(topicId) + ": " + "Message published to topic: " + topicId);
         } else {
             out.println("error: Usage: publish {topic_id} {message}");
         }
     }
     
     
-
     private void handleSubscribe(String[] parts) {
         if (parts.length == 2) {
             String topicId = parts[1];
-            // Add the subscriber ID (username) directly to the broker without creating a Subscriber object
-            broker.addSubscriberId(topicId, username, true);
     
-            // Get the current date and time in the desired format: dd/MM HH:mm:ss
-            //String timestamp = new java.text.SimpleDateFormat("dd/MM HH:mm:ss").format(new java.util.Date());
-    
-            // Send subscription confirmation with date info
-            //System.out.println(parts[0]+ " " + parts[1] + "qwdqwwd");
-            out.println("success: " + username + " subscribed to topic: " + topicId);
+            // Check if the user is already subscribed to the topic
+            if (broker.isSubscribed(topicId, username)) {
+                out.println("error: " + username + " is already subscribed to topic: " + topicId);
+            } else {
+                // Add the subscriber ID (username) directly to the broker without creating a Subscriber object
+                broker.addSubscriberId(topicId, username, true);
+                out.println("success: " + username + " subscribed to topic: " + topicId);
+            }
         } else {
             out.println("error: Usage: sub {topic_id}");
         }
     }
     
+    
     private void handleUnsubscribe(String[] parts) {
         if (parts.length == 2) {
             String topicId = parts[1];
-            // Call the broker's unsubscribe method with synchronization set to true
-            broker.unsubscribe(topicId, username, true);
-            // Send unsubscription confirmation with date info
-            out.println("success: " + username + " unsubscribed from topic: " + topicId);
+    
+            // Check if the user is actually subscribed to the topic
+            if (!broker.isSubscribed(topicId, username)) {
+                out.println("error: " + username + " is not subscribed to topic: " + topicId);
+            } else {
+                // Call the broker's unsubscribe method with synchronization set to true
+                broker.unsubscribe(topicId, username, true);
+                out.println("success: " + username + " unsubscribed from topic: " + topicId);
+            }
         } else {
             out.println("error: Usage: unsub {topic_id}");
         }
     }
-    
-    
+
     private void handleCurrent(String[] parts) {
         broker.listSubscriptions(out, username);
     }

@@ -45,7 +45,7 @@ public class Broker {
     private final CopyOnWriteArrayList<BrokerHandler> brokerBrokerHandlers;
     
     private boolean isLocked;
-    private int TOTAL_SUB_LIMIT = 3;
+    private int TOTAL_SUB_LIMIT = 10;
     private int TOTAL_PUB_LIMIT = 5;
 
 
@@ -137,12 +137,11 @@ public class Broker {
                     //out.println("Handshake refused, failed to acquire lock");
                     return false;
                 }
+
                 if (getTotalSubscriberCount() >= TOTAL_SUB_LIMIT) {
                     releaseLockFromAllBrokers();
-                    
                     return false;
                 }
-                System.out.println("dqwhdudhwqd" + getTotalSubscriberCount());
                 subClientHandlers.add(clientHandler);
                 releaseLockFromAllBrokers();
             } else if ("publisher".equals(connectionType)) {
@@ -189,7 +188,15 @@ public class Broker {
         }
     }
     
-
+    public boolean topicExists(String topicId) {
+        return topicNames.containsKey(topicId);
+    }
+    
+    public boolean isTopicOwner(String topicId, String username) {
+        String owner = topicPublishers.get(topicId);
+        return owner != null && owner.equals(username);
+    }
+    
 
     // Only add topic topicid topicname, no further function call, will be used in handlesynchronized
     public void createSimpleTopic(String username, String topicId, String topicName) {
@@ -761,6 +768,10 @@ public class Broker {
                 break; // Exit loop after finding and removing the publisher
             }
         }
+    }
+    public boolean isSubscribed(String topicId, String username) {
+        ConcurrentHashMap<String, Subscriber> subscribers = topicSubscribers.get(topicId);
+        return subscribers != null && subscribers.containsKey(username);
     }
     
 }
