@@ -140,15 +140,21 @@ public class BrokerHandler extends Thread {
     
 
     private void handleSynchronizeMessage(String[] parts) {
-        if (parts.length == 3) {
+        if (parts.length >= 3) {
             String topicId = parts[1];
-            String message = parts[2];
+            // Combine all elements from parts[2] onward into a single message string
+            StringBuilder messageBuilder = new StringBuilder(parts[2]);
+            for (int i = 3; i < parts.length; i++) {
+                messageBuilder.append(" ").append(parts[i]);
+            }
+            String message = messageBuilder.toString();
+            // Publish the message to the topic without synchronization
             broker.publishMessage(topicId, message, false);
-            //out.println("Synchronized message to topic: " + topicId); only send proper command
         } else {
-            out.println("Invalid synchronize_message message.");
+            out.println("Invalid synchronize_message command.");
         }
     }
+    
 
     private void handleSynchronizeSubscription(String[] parts) {
         if (parts.length == 3) {

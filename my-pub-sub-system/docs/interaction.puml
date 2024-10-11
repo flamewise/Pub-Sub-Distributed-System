@@ -1,0 +1,20 @@
+@startuml
+actor Publisher
+actor Subscriber
+participant Broker
+participant DirectoryService
+participant DirectoryServiceClient
+
+Publisher -> Broker : HANDSHAKE_INIT (publisher)
+Broker -> DirectoryServiceClient : registerBroker()
+DirectoryServiceClient -> DirectoryService : getActiveBrokers()
+
+Subscriber -> Broker : HANDSHAKE_INIT (subscriber)
+Subscriber -> Broker : sub(topicId)
+Broker -> Subscriber : Subscription Confirmed
+Subscriber -> Broker : publish(topicId, message)
+Broker -> Subscriber : Receive message
+Broker -> DirectoryServiceClient : Synchronize Message
+DirectoryServiceClient -> DirectoryService : getActiveBrokers()
+
+@enduml

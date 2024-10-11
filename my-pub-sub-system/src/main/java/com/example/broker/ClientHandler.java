@@ -79,14 +79,14 @@ public class ClientHandler extends Thread {
                 break;  // Exit the loop when the client disconnects
             }
     
-            System.out.println("Client Command: " + inputLine + " from " + connectionType + " at IP: " + clientIP + " Port: " + clientPort);
+            //System.out.println("Client Command: " + inputLine + " from " + connectionType + " at IP: " + clientIP + " Port: " + clientPort);
             String[] parts = inputLine.split(" ");
     
             if (parts.length > 0) {
                 String command = parts[0];
                 handleCommand(command, parts);
             } else {
-                out.println("Invalid command.");
+                out.println("error: Invalid command.");
             }
         }
     }
@@ -104,10 +104,10 @@ public class ClientHandler extends Thread {
                     handleSubscriberCommands(command, parts);
                     break;
                 default:
-                    out.println("Unknown connection type.");
+                    out.println("error: Unknown connection type.");
             }
         } catch (Exception e) {
-            out.println("Error processing command: " + e.getMessage());
+            out.println("error: Error processing command: " + e.getMessage());
         }
     }
 
@@ -126,7 +126,7 @@ public class ClientHandler extends Thread {
                 handleDelete(parts);
                 break;
             default:
-                out.println("Invalid command for publisher.");
+                out.println("error: Invalid command for publisher.");
         }
     }
     
@@ -137,9 +137,9 @@ public class ClientHandler extends Thread {
             // Call the broker's deleteTopic method to delete the topic and notify subscribers
             broker.deleteTopic(topicId, true);  // `true` ensures the deletion is synchronized with other brokers
             
-            out.println("Topic " + topicId + " has been deleted.");
+            out.println("success: Topic " + topicId + " has been deleted.");
         } else {
-            out.println("Usage: delete {topic_id}");
+            out.println("error: Usage: delete {topic_id}");
         }
     }      
 
@@ -148,7 +148,7 @@ public class ClientHandler extends Thread {
             // Call the broker's method to show the subscriber count for a given topic
             broker.showSubscriberCount(parts[1], out);
         } else {
-            out.println("Usage: show {topic_id}");
+            out.println("error: Usage: show {topic_id}");
         }
     }
 
@@ -169,7 +169,7 @@ public class ClientHandler extends Thread {
                 handleListAll();
                 break;
             default:
-                out.println("Invalid command for subscriber.");
+                out.println("error: Invalid command for subscriber.");
         }
     }
 
@@ -178,12 +178,9 @@ public class ClientHandler extends Thread {
     private void handleCreate(String[] parts) {
         if (parts.length == 3) {
             broker.createTopic(username, parts[1], parts[2]);
-            String topicId = parts[1];
-            String topicName = parts[2];
-            String timestamp = new java.text.SimpleDateFormat("dd/MM HH:mm:ss").format(new java.util.Date());
-            out.println(timestamp + " " + topicId + ":" + topicName + ":" + "Topic created: " + parts[2] + " (ID: " + parts[1] + ")");
+            out.println("success: " + "Topic created: " + parts[2] + " (ID: " + parts[1] + ")");
         } else {
-            out.println("Usage: create {topic_id} {topic_name}");
+            out.println("error: Usage: create {topic_id} {topic_name}");
         }
     }
 
@@ -192,15 +189,24 @@ public class ClientHandler extends Thread {
     }
 
     private void handlePublish(String[] parts) {
-        if (parts.length == 3) {
+        if (parts.length >= 3) {
+            // Combine all elements from parts[2] onward into a single message string
+            StringBuilder messageBuilder = new StringBuilder(parts[2]);
+            for (int i = 3; i < parts.length; i++) {
+                messageBuilder.append(" ").append(parts[i]);
+            }
+            String message = messageBuilder.toString();
+            
             // Call the broker's method to publish the message and synchronize it across brokers
-            broker.publishMessage(parts[1], parts[2], true); // `true` means synchronization is needed
+            broker.publishMessage(parts[1], message, true); // `true` means synchronization is needed
+            
             String timestamp = new java.text.SimpleDateFormat("dd/MM HH:mm:ss").format(new java.util.Date());
             out.println(timestamp + " " + parts[1] + ":" + broker.topicNames.get(parts[1]) + ": " + "Message published to topic: " + parts[1]);
         } else {
-            out.println("Usage: publish {topic_id} {message}");
+            out.println("error: Usage: publish {topic_id} {message}");
         }
     }
+    
     
 
     private void handleSubscribe(String[] parts) {
@@ -210,30 +216,25 @@ public class ClientHandler extends Thread {
             broker.addSubscriberId(topicId, username, true);
     
             // Get the current date and time in the desired format: dd/MM HH:mm:ss
-            String timestamp = new java.text.SimpleDateFormat("dd/MM HH:mm:ss").format(new java.util.Date());
+            //String timestamp = new java.text.SimpleDateFormat("dd/MM HH:mm:ss").format(new java.util.Date());
     
             // Send subscription confirmation with date info
-            System.out.println(parts[0]+ " " + parts[1] + "qwdqwwd");
-            out.println(timestamp + " " + topicId + ":" + broker.topicNames.get(topicId) + ":" + username + " subscribed to topic: " + topicId);
+            //System.out.println(parts[0]+ " " + parts[1] + "qwdqwwd");
+            out.println("success: " + username + " subscribed to topic: " + topicId);
         } else {
-            out.println("Usage: sub {topic_id}");
+            out.println("error: Usage: sub {topic_id}");
         }
     }
     
     private void handleUnsubscribe(String[] parts) {
         if (parts.length == 2) {
             String topicId = parts[1];
-    
             // Call the broker's unsubscribe method with synchronization set to true
             broker.unsubscribe(topicId, username, true);
-    
-            // Get the current date and time in the desired format: dd/MM HH:mm:ss
-            String timestamp = new java.text.SimpleDateFormat("dd/MM HH:mm:ss").format(new java.util.Date());
-    
             // Send unsubscription confirmation with date info
-            out.println(timestamp + " " + topicId + ":" + broker.topicNames.get(topicId) + ":" + username + " unsubscribed from topic: " + topicId);
+            out.println("success: " + username + " unsubscribed from topic: " + topicId);
         } else {
-            out.println("Usage: unsub {topic_id}");
+            out.println("error: Usage: unsub {topic_id}");
         }
     }
     

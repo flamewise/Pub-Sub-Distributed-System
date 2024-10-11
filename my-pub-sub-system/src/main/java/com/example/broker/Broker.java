@@ -289,7 +289,7 @@ public class Broker {
                 String topicName = topicNames.get(topicId);
                 String publisherName = topicPublishers.get(topicId);  // Get the publisher name
                 String timestamp = new java.text.SimpleDateFormat("dd/MM HH:mm:ss").format(new java.util.Date());
-                out.println(timestamp + " " + topicId + ":" + topicNames.get(topicId) + ": " + "Topic ID: " + topicId + ", Name: " + topicName + ", Publisher: " + publisherName);
+                out.println("Topic ID: " + topicId + ", Name: " + topicName + ", Publisher: " + publisherName);
             }
         }
         out.println("END");  // Indicate the end of the topic list
@@ -297,16 +297,19 @@ public class Broker {
 
 
     public void listSubscriptions(PrintWriter out, String subscriberId) {
+        boolean hasSubscribeTopic = false;
         for (String topicId : topicSubscribers.keySet()) {
             ConcurrentHashMap<String, Subscriber> subscribers = topicSubscribers.get(topicId);
             if (subscribers.containsKey(subscriberId)) {
-                String timestamp = new java.text.SimpleDateFormat("dd/MM HH:mm:ss").format(new java.util.Date());
-                out.println(timestamp + " " + topicId + ":" + topicNames.get(topicId) + ": " + "Subscribed to: " + topicId + " (" + topicNames.get(topicId) + ")");
+                hasSubscribeTopic = true;
+                //String timestamp = new java.text.SimpleDateFormat("dd/MM HH:mm:ss").format(new java.util.Date());
+                out.println("success: " + "Subscribed to: " + topicId + " (" + topicNames.get(topicId) + ")");
             }
         }
-        if (topicSubscribers.keySet().size() == 0){
-            String timestamp = new java.text.SimpleDateFormat("dd/MM HH:mm:ss").format(new java.util.Date());
-            out.println(timestamp + " " + "No any subscribed topic");
+
+        if (!hasSubscribeTopic){
+            //String timestamp = new java.text.SimpleDateFormat("dd/MM HH:mm:ss").format(new java.util.Date());
+            out.println("No any subscribed topic");
         }
         out.println("END");
     }
@@ -453,7 +456,7 @@ public class Broker {
         ConcurrentHashMap<String, Subscriber> subscribers = topicSubscribers.get(topicId);
         String timestamp = new java.text.SimpleDateFormat("dd/MM HH:mm:ss").format(new java.util.Date());
         if (subscribers != null) {
-            out.println(timestamp + " " + topicId + ":" + this.topicNames.get(topicId) + ":" + "Subscriber count for topic " + topicId + ": " + subscribers.size());
+            out.println("Subscriber count for topic " + topicId + ": " + subscribers.size());
         } else {
             
             out.println(timestamp + " Topic not found: " + topicId);
@@ -481,8 +484,8 @@ public class Broker {
                             // Send the topic deletion message to the subscriber with the formatted timestamp and topic details
                             PrintWriter out = new PrintWriter(clientHandler.getClientSocket().getOutputStream(), true);
                             // Get the current date and time in the desired format: dd/MM hh:mm:ss
-                            String timestamp = new java.text.SimpleDateFormat("dd/MM HH:mm:ss").format(new java.util.Date());
-                            out.println(timestamp + " " + topicId + ":" + topicName + ": Topic " + topicId + " (" + topicName + ") has been deleted.");
+                            //String timestamp = new java.text.SimpleDateFormat("dd/MM HH:mm:ss").format(new java.util.Date());
+                            out.println( "Topic " + topicId + " (" + topicName + ") has been deleted.");
                             out.flush();
                             System.out.println("Notified subscriber " + subscriberUsername + " about the deletion of topic: " + topicId);
                         } catch (IOException e) {

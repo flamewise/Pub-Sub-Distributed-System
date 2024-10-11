@@ -1,0 +1,60 @@
+@startuml
+class Broker {
+    -String ownBrokerAddress
+    -ConcurrentHashMap<String, ConcurrentHashMap<String, Subscriber>> topicSubscribers
+    -ConcurrentHashMap<String, String> topicNames
+    -ConcurrentHashMap<String, String> topicPublishers
+    -Set<String> connectedBrokerAddresses
+    -ExecutorService connectionPool
+    -ServerSocket serverSocket
+    +start() 
+    +createTopic(String username, String topicId, String topicName)
+    +publishMessage(String topicId, String message, boolean synchronizedRequired)
+    +addSubscriberId(String topicId, String subscriberId, boolean synchronizedRequired)
+    +unsubscribe(String topicId, String username, boolean synchronizedRequired)
+}
+
+class ClientHandler {
+    -Socket clientSocket
+    -Broker broker
+    -String username
+    -String connectionType
+    +run()
+    +handleClientCommands()
+    +handlePublisherCommands()
+    +handleSubscriberCommands()
+}
+
+class PublisherApp {
+    +main(String[] args)
+}
+
+class SubscriberApp {
+    +main(String[] args)
+}
+
+class Subscriber {
+    -String id
+    -PrintWriter out
+    +receiveMessage(String topicId, String topicName, String message)
+}
+
+class DirectoryService {
+    -Set<String> activeBrokers
+    +registerBroker(String brokerAddress)
+    +getActiveBrokers()
+    +deregisterBroker(String brokerAddress)
+}
+
+class DirectoryServiceClient {
+    -String directoryServiceAddress
+    +registerBroker(String brokerAddress)
+    +getActiveBrokers()
+}
+
+Broker "1" -- "*" ClientHandler
+ClientHandler --> "1" Subscriber
+SubscriberApp -- "uses" Broker
+PublisherApp -- "uses" Broker
+DirectoryServiceClient -- "interacts with" DirectoryService
+@enduml
