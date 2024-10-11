@@ -133,15 +133,25 @@ public class ClientHandler extends Thread {
     private void handleDelete(String[] parts) {
         if (parts.length == 2) {
             String topicId = parts[1];
-    
-            // Call the broker's deleteTopic method to delete the topic and notify subscribers
-            broker.deleteTopic(topicId, true);  // `true` ensures the deletion is synchronized with other brokers
             
-            out.println("success: Topic " + topicId + " has been deleted.");
+            // Check if the topic exists
+            if (!broker.topicExists(topicId)) {
+                out.println("error: Topic with ID " + topicId + " does not exist.");
+            } else {
+                // Check if the current user is the owner of the topic
+                if (!broker.isTopicOwner(topicId, username)) {
+                    out.println("error: You do not have permission to delete this topic. Only the owner can delete it.");
+                } else {
+                    // Call the broker's deleteTopic method to delete the topic and notify subscribers
+                    broker.deleteTopic(topicId, true);  // `true` ensures the deletion is synchronized with other brokers
+                    out.println("success: Topic " + topicId + " has been deleted.");
+                }
+            }
         } else {
             out.println("error: Usage: delete {topic_id}");
         }
-    }      
+    }
+         
 
     private void handleShow(String[] parts) {
         if (parts.length == 2) {
@@ -177,12 +187,21 @@ public class ClientHandler extends Thread {
 
     private void handleCreate(String[] parts) {
         if (parts.length == 3) {
-            broker.createTopic(username, parts[1], parts[2]);
-            out.println("success: " + "Topic created: " + parts[2] + " (ID: " + parts[1] + ")");
+            String topicId = parts[1];
+            
+            // Check if the topic already exists
+            if (broker.topicExists(topicId)) {
+                out.println("error: Topic with ID " + topicId + " already exists.");
+            } else {
+                // Create the topic if it doesn't exist
+                broker.createTopic(username, topicId, parts[2]);
+                out.println("success: " + "Topic created: " + parts[2] + " (ID: " + topicId + ")");
+            }
         } else {
             out.println("error: Usage: create {topic_id} {topic_name}");
         }
     }
+    
 
     private void handleListAll() {
         broker.listAllTopics(out);
@@ -227,6 +246,12 @@ public class ClientHandler extends Thread {
         if (parts.length == 2) {
             String topicId = parts[1];
     
+            // Check if the topic exists in the broker
+            if (!broker.topicExists(topicId)) {
+                out.println("error: Topic " + topicId + " does not exist.");
+                return;
+            }
+    
             // Check if the user is already subscribed to the topic
             if (broker.isSubscribed(topicId, username)) {
                 out.println("error: " + username + " is already subscribed to topic: " + topicId);
@@ -239,6 +264,7 @@ public class ClientHandler extends Thread {
             out.println("error: Usage: sub {topic_id}");
         }
     }
+    
     
     
     private void handleUnsubscribe(String[] parts) {

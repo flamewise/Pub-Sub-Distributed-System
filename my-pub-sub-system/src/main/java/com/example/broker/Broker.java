@@ -328,13 +328,14 @@ public class Broker {
 
     // Method to list all topics to a subscriber
     public void listAllTopics(PrintWriter out) {
+        updateConnectedBrokers();
         if (topicNames.isEmpty()) {
             out.println("No topics available.");
         } else {
             for (String topicId : topicNames.keySet()) {
                 String topicName = topicNames.get(topicId);
                 String publisherName = topicPublishers.get(topicId);  // Get the publisher name
-                String timestamp = new java.text.SimpleDateFormat("dd/MM HH:mm:ss").format(new java.util.Date());
+                //String timestamp = new java.text.SimpleDateFormat("dd/MM HH:mm:ss").format(new java.util.Date());
                 out.println("Topic ID: " + topicId + ", Name: " + topicName + ", Publisher: " + publisherName);
             }
         }
@@ -343,6 +344,7 @@ public class Broker {
 
 
     public void listSubscriptions(PrintWriter out, String subscriberId) {
+        updateConnectedBrokers();
         boolean hasSubscribeTopic = false;
         for (String topicId : topicSubscribers.keySet()) {
             ConcurrentHashMap<String, Subscriber> subscribers = topicSubscribers.get(topicId);

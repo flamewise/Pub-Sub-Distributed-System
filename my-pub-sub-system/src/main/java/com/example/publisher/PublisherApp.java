@@ -129,7 +129,7 @@ public class PublisherApp {
                         if (parts.length == 2) {
                             String topicId = parts[1];
                             publisher.deleteTopic(topicId);
-                            System.out.println(username + " deleted topic: " + topicId);
+                            //System.out.println(username + " deleted topic: " + topicId);
                         } else {
                             System.out.println("Usage: delete {topic_id}");
                         }
