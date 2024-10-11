@@ -1,0 +1,22 @@
+@startuml
+actor BrokerA as A
+actor BrokerB as B
+actor BrokerC as C
+
+A -> B: request_lock
+A -> C: request_lock
+B -> A: lock_ack
+C -> A: lock_ack
+
+A -> A: Proceed with critical operation
+
+note right of A
+    Broker A receives lock_ack 
+    from all brokers and
+    proceeds with the operation.
+end note
+
+B -> A: release_lock
+C -> A: release_lock
+
+@enduml
