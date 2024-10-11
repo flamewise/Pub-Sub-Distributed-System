@@ -269,6 +269,9 @@ public class ClientHandler extends Thread {
     private void handlePublisherCrash() {
         System.out.println("Handling publisher crash for: " + username);
     
+        // Remove the publisher's ClientHandler from pubClientHandlers
+        broker.removePublisherClientHandler(username);
+    
         // Iterate over all topics to find the ones created by this publisher
         for (String topicId : broker.topicPublishers.keySet()) {
             String publisher = broker.topicPublishers.get(topicId);
@@ -282,6 +285,9 @@ public class ClientHandler extends Thread {
     
     private void handleSubscriberCrash() {
         System.out.println("Handling subscriber crash for: " + username);
+
+        // Remove the publisher's ClientHandler from pubClientHandlers
+        broker.removeSubscriberClientHandler(username);
     
         // Iterate over all topics to find the subscriptions of this subscriber
         for (String topicId : broker.topicSubscribers.keySet()) {

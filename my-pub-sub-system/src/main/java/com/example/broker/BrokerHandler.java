@@ -89,12 +89,42 @@ public class BrokerHandler extends Thread {
                 case "synchronize_delete":
                     handleSynchronizeDelete(parts);
                     break;
+                case "request_lock":
+                    handleLockRequest();
+                    break;
+                case "release_lock":
+                    handleLockRelease();
+                    break;
+                case "get_local_subscriber_count":
+                    handleGetLocalSubscriberCount();
+                    break;
                 default:
                     System.out.println("Invalid command for broker, Command: " + command);
             }
         } catch (Exception e) {
             out.println("Error processing broker command: " + e.getMessage());
         }
+    }
+
+    private void handleGetLocalSubscriberCount() {
+        int localSubscriberCount = broker.getLocalSubscriberCount();
+        out.println(localSubscriberCount);  // Send the local subscriber count back to the requesting broker
+        out.flush();  // Ensure the message is sent
+    }
+    
+
+    private void handleLockRequest() {
+        // Lock this broker
+        broker.lock();
+    
+        // Send lock acknowledgment
+        out.println("lock_ack");
+        out.flush();
+    }
+
+    private void handleLockRelease() {
+        // Unlock this broker
+        broker.unlock();
     }
     
     private void handleSynchronizeDelete(String[] parts) {
@@ -109,8 +139,6 @@ public class BrokerHandler extends Thread {
             out.println("Invalid synchronize_delete message.");
         }
     }
-    
-    
 
     private void handleSynchronizeTopic(String[] parts) {
         if (parts.length == 4) {  // Now expecting 4 parts (synchronize_topic <topicId> <topicName> <username>)
@@ -181,4 +209,9 @@ public class BrokerHandler extends Thread {
             e.printStackTrace();
         }
     }
+
+    public Socket getSocket() {
+        return this.brokerSocket;
+    }
+
 }

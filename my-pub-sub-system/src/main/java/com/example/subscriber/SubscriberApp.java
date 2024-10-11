@@ -82,23 +82,23 @@ public class SubscriberApp {
             Subscriber subscriber = new Subscriber(username, out, in);
             System.out.println("Connected to broker at " + brokerHost + ":" + brokerPort);
 
-// Start a thread to listen for messages from the broker
-new Thread(() -> {
-    try {
-        String brokerMessage;
-        while ((brokerMessage = in.readLine()) != null) {
-            if (brokerMessage.startsWith("Topic ID:") || brokerMessage.equals("END")) {
-                // This is part of a command response (like list_all)
-                subscriber.addCommandResponse(brokerMessage);
-            } else {
-                // This is an asynchronous message
-                subscriber.handleAsyncMessage(brokerMessage);
-            }
-        }
-    } catch (IOException e) {
-        System.err.println("Connection closed by broker.");
-    }
-}).start();
+            // Start a thread to listen for messages from the broker
+            new Thread(() -> {
+                try {
+                    String brokerMessage;
+                    while ((brokerMessage = in.readLine()) != null) {
+                        if (brokerMessage.startsWith("Topic ID:") || brokerMessage.equals("END")) {
+                            // This is part of a command response (like list_all)
+                            subscriber.addCommandResponse(brokerMessage);
+                        } else {
+                            // This is an asynchronous message
+                            subscriber.handleAsyncMessage(brokerMessage);
+                        }
+                    }
+                } catch (IOException e) {
+                    System.err.println("Connection closed by broker.");
+                }
+            }).start();
 
 
 

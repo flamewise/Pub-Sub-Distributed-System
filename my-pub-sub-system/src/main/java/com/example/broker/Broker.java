@@ -21,6 +21,8 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -39,6 +41,12 @@ public class Broker {
     private final DirectoryServiceClient directoryServiceClient;
     private final ServerSocket serverSocket;
     private final CopyOnWriteArrayList<ClientHandler> subClientHandlers;
+    private final CopyOnWriteArrayList<ClientHandler> pubClientHandlers;
+    private final CopyOnWriteArrayList<BrokerHandler> brokerBrokerHandlers;
+    private boolean isLocked;
+    private int TOTAL_SUB_LIMIT = 10;
+    private int TOTAL_PUB_LIMIT = 5;
+
 
     public Broker(int port, String directoryServiceAddress) throws IOException {
         this.topicSubscribers = new ConcurrentHashMap<>();
@@ -51,6 +59,9 @@ public class Broker {
         this.serverSocket = new ServerSocket(port);
         this.ownBrokerAddress = serverSocket.getInetAddress().getHostAddress() + ":" + port;
         this.subClientHandlers = new CopyOnWriteArrayList<>();
+        this.pubClientHandlers = new CopyOnWriteArrayList<>();
+        this.brokerBrokerHandlers = new CopyOnWriteArrayList<>();
+        this.isLocked = false;
         System.out.println("Broker started on port: " + port);
 
         // Register the broker with the directory service
@@ -112,14 +123,41 @@ public class Broker {
             connectedBrokers.add(clientSocket);
             connectedBrokerAddresses.add(username);
             // Submit the broker to the broker handler for further processing
-            connectionPool.submit(new BrokerHandler(clientSocket, this, username));
+            BrokerHandler brokerHandler = new BrokerHandler(clientSocket, this, username);
+            brokerBrokerHandlers.add(brokerHandler);
+            connectionPool.submit(brokerHandler);
         } else if ("publisher".equals(connectionType) || "subscriber".equals(connectionType)) {
             // Handle publisher or subscriber connection
             ClientHandler clientHandler = new ClientHandler(clientSocket, this, username, connectionType);
-            connectionPool.submit(clientHandler);
+            
             if ("subscriber".equals(connectionType)) {
+                boolean lock = requestLockFromAllBrokers();
+                if (!lock) {
+                    //out.println("Handshake refused, failed to acquire lock");
+                    return false;
+                }
+                if (getTotalSubscriberCount() >= TOTAL_SUB_LIMIT) {
+                    releaseLockFromAllBrokers();
+                    
+                    return false;
+                }
+                System.out.println("dqwhdudhwqd" + getTotalSubscriberCount());
                 subClientHandlers.add(clientHandler);
+                releaseLockFromAllBrokers();
+            } else if ("publisher".equals(connectionType)) {
+                boolean lock = requestLockFromAllBrokers();
+                if (!lock) {
+                    //out.println("Handshake refused, failed to acquire lock");
+                    return false;
+                }
+                if (getTotalPublisherCount() >= TOTAL_PUB_LIMIT) {
+                    releaseLockFromAllBrokers();
+                    return false;
+                }
+                pubClientHandlers.add(clientHandler);
+                releaseLockFromAllBrokers();
             }
+            connectionPool.submit(clientHandler);
             System.out.println("Client connected as: " + connectionType);
         } else {
             System.out.println("Connection not know " + connectionType);
@@ -406,7 +444,9 @@ public class Broker {
             System.out.println("Broker handshake successful with " + brokerAddress);
     
             // Now submit the BrokerHandler task to handle the broker communication asynchronously
-            connectionPool.submit(new BrokerHandler(brokerSocket, this, brokerIP + ":" + brokerPort));
+            BrokerHandler brokerHandler = new BrokerHandler(brokerSocket, this, brokerIP + ":" + brokerPort);
+            connectionPool.submit(brokerHandler);
+            brokerBrokerHandlers.add(brokerHandler);
         } catch (IOException e) {
             System.out.println("Error connecting to broker at " + brokerAddress + ": " + e.getMessage());
         }
@@ -526,5 +566,187 @@ public class Broker {
         }
     }
     
+    //If broker want to connect to publisher/subscriber, it need to obtain the lock and check current connected publisher/subscriber across broker network
+    // Method to lock the broker
+    public synchronized void lock() {
+        isLocked = true;
+        System.out.println("Broker locked. No new connections can be accepted.");
+    }
 
+    // Method to unlock the broker
+    public synchronized void unlock() {
+        isLocked = false;
+        System.out.println("Broker unlocked. New connections can now be accepted.");
+    }
+
+    // Method to check if the broker is locked
+    public synchronized boolean isLocked() {
+        return isLocked;
+    }
+
+    private  boolean requestLockFromAllBrokers() {
+        updateConnectedBrokers();
+        boolean lockAcquired = true;
+        List<Socket> successfullyLockedBrokers = new ArrayList<>();
+
+        for (Socket brokerSocket : connectedBrokers) {
+            try {
+                PrintWriter out = new PrintWriter(brokerSocket.getOutputStream(), true);
+                BufferedReader in = new BufferedReader(new InputStreamReader(brokerSocket.getInputStream()));
+
+                // Send lock request
+                out.println("request_lock");
+
+                // Wait for the acknowledgment
+                String response = in.readLine();
+                if (!"lock_ack".equals(response)) {
+                    lockAcquired = false;
+                    break;
+                }
+
+                // If lock was acquired, add the broker to the list of locked brokers
+                successfullyLockedBrokers.add(brokerSocket);
+
+            } catch (IOException e) {
+                System.err.println("Error requesting lock from broker: " + e.getMessage());
+                lockAcquired = false;
+                break;
+            }
+        }
+
+        // If failed to acquire the lock, release all locks acquired so far
+        if (!lockAcquired) {
+            releaseLocksFromBrokers(successfullyLockedBrokers);
+        }
+
+        return lockAcquired;
+    }
+
+    private void releaseLocksFromBrokers(List<Socket> lockedBrokers) {
+        for (Socket brokerSocket : lockedBrokers) {
+            try {
+                PrintWriter out = new PrintWriter(brokerSocket.getOutputStream(), true);
+                // Send unlock command
+                out.println("release_lock");
+                out.flush();
+            } catch (IOException e) {
+                System.err.println("Error releasing lock from broker: " + e.getMessage());
+            }
+        }
+    }
+
+
+    private void releaseLockFromAllBrokers() {
+        for (Socket brokerSocket : connectedBrokers) {
+            try {
+                PrintWriter out = new PrintWriter(brokerSocket.getOutputStream(), true);
+                // Send lock release message
+                out.println("release_lock");
+                out.flush();
+            } catch (IOException e) {
+                System.err.println("Error releasing lock from broker: " + e.getMessage());
+            }
+        }
+    
+        // Also unlock the current broker
+        this.unlock();
+    }
+    
+    public int getLocalSubscriberCount() {
+        return this.subClientHandlers.size();
+    }
+
+    public int getTotalSubscriberCount() {
+        int totalSubscriberCount = getLocalSubscriberCount();  // Start with the local subscriber count
+    
+        for (BrokerHandler brokerHandler : brokerBrokerHandlers) {
+            Socket brokerSocket = brokerHandler.getSocket();  // Get the broker's socket
+    
+            try {
+                PrintWriter out = new PrintWriter(brokerSocket.getOutputStream(), true);
+                BufferedReader in = new BufferedReader(new InputStreamReader(brokerSocket.getInputStream()));
+    
+                // Send a request to the broker to get its local subscriber count
+                out.println("get_local_subscriber_count");
+    
+                // Read the response from the broker
+                String response = in.readLine();
+                if (response != null) {
+                    try {
+                        int brokerSubscriberCount = Integer.parseInt(response);
+                        totalSubscriberCount += brokerSubscriberCount;
+                        System.out.println("Received subscriber count: " + brokerSubscriberCount);
+                    } catch (NumberFormatException e) {
+                        System.err.println("Invalid subscriber count received from broker.");
+                    }
+                }
+            } catch (IOException e) {
+                System.err.println("Error communicating with broker: " + e.getMessage());
+            }
+        }
+    
+        return totalSubscriberCount;  // Return the total count of subscribers across all brokers
+    }
+    
+
+    public int getTotalPublisherCount() {
+        int totalPublisherCount = getLocalPublisherCount();  // Start with the local publisher count
+    
+        for (BrokerHandler brokerHandler : brokerBrokerHandlers) {
+            Socket brokerSocket = brokerHandler.getSocket();  // Get the broker's socket
+    
+            try {
+                PrintWriter out = new PrintWriter(brokerSocket.getOutputStream(), true);
+                BufferedReader in = new BufferedReader(new InputStreamReader(brokerSocket.getInputStream()));
+    
+                // Send a request to the broker to get its local publisher count
+                out.println("get_local_publisher_count");
+    
+                // Read the response from the broker
+                String response = in.readLine();
+                if (response != null) {
+                    try {
+                        int brokerPublisherCount = Integer.parseInt(response);
+                        totalPublisherCount += brokerPublisherCount;
+                        System.out.println("Received publisher count: " + brokerPublisherCount);
+                    } catch (NumberFormatException e) {
+                        System.err.println("Invalid publisher count received from broker.");
+                    }
+                }
+            } catch (IOException e) {
+                System.err.println("Error communicating with broker: " + e.getMessage());
+            }
+        }
+    
+        return totalPublisherCount;  // Return the total count of publishers across all brokers
+    }
+    
+        
+
+    public int getLocalPublisherCount() {
+        return this.pubClientHandlers.size();
+    }
+
+    public void removePublisherClientHandler(String username) {
+        for (ClientHandler clientHandler : pubClientHandlers) {
+            if (clientHandler.getUserName().equals(username)) {
+                // Remove the publisher's ClientHandler from the list
+                pubClientHandlers.remove(clientHandler);
+                System.out.println("Removed publisher ClientHandler for: " + username);
+                break; // Exit loop after finding and removing the publisher
+            }
+        }
+    }
+
+    public void removeSubscriberClientHandler(String username) {
+        for (ClientHandler clientHandler : subClientHandlers) {
+            if (clientHandler.getUserName().equals(username)) {
+                // Remove the publisher's ClientHandler from the list
+                subClientHandlers.remove(clientHandler);
+                System.out.println("Removed subscriber ClientHandler for: " + username);
+                break; // Exit loop after finding and removing the publisher
+            }
+        }
+    }
+    
 }
