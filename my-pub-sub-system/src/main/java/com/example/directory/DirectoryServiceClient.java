@@ -1,3 +1,15 @@
+/**
+ * Name: Simon Chen
+ * Surname: Chen
+ * Student ID: 1196439
+ *
+ * Description: The DirectoryServiceClient class allows a broker to communicate with the directory service. 
+ * Brokers use this client to register themselves with the directory, retrieve a list of active brokers, and 
+ * deregister when they are no longer active.
+ * 
+ * Date: 11/10/2024
+ */
+
 package com.example.directory;
 
 import java.io.BufferedReader;

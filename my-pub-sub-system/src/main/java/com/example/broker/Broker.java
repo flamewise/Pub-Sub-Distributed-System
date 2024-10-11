@@ -1,3 +1,15 @@
+/**
+ * Name: Simon Chen
+ * Surname: Chen
+ * Student ID: 1196439
+ *
+ * Description: The Broker class represents a message broker that handles publisher-subscriber communication.
+ * It maintains topics, manages subscriptions, and facilitates message distribution to subscribers. The class
+ * also handles broker-to-broker communication to synchronize messages and topics across the network.
+ * 
+ * Date: 11/10/2024
+ */
+
 package com.example.broker;
 
 import com.example.subscriber.Subscriber;

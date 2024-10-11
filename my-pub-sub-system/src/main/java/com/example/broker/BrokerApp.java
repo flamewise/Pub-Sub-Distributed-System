@@ -1,3 +1,15 @@
+/**
+ * Name: Simon Chen
+ * Surname: Chen
+ * Student ID: 1196439
+ *
+ * Description: The BrokerApp class is the main entry point for running the broker application. It sets up a new Broker instance 
+ * and starts it in a separate thread. The broker is initialized with a port number and a directory service address 
+ * that helps it discover and communicate with other brokers in the network.
+ * 
+ * Date: 11/10/2024
+ */
+
 package com.example.broker;
 
 public class BrokerApp {

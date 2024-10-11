@@ -1,3 +1,15 @@
+/**
+ * Name: Simon Chen
+ * Surname: Chen
+ * Student ID: 1196439
+ *
+ * Description: The PublisherApp class serves as the entry point for a publisher application. It allows
+ * publishers to connect to a broker, create topics, publish messages, and manage topics. The class handles
+ * the user's interaction with the system using commands such as creating a topic or publishing a message.
+ * 
+ * Date: 11/10/2024
+ */
+
 package com.example.publisher;
 
 import com.example.directory.DirectoryServiceClient;

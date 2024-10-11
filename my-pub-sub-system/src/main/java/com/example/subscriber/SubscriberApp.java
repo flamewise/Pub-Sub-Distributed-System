@@ -1,3 +1,15 @@
+/**
+ * Name: Simon Chen
+ * Surname: Chen
+ * Student ID: 1196439
+ *
+ * Description: The SubscriberApp class serves as the entry point for a subscriber application. It allows
+ * subscribers to connect to a broker, subscribe to topics, receive messages, and interact with the broker
+ * using commands such as subscribing and unsubscribing from topics.
+ * 
+ * Date: 11/10/2024
+ */
+
 package com.example.subscriber;
 
 import com.example.directory.DirectoryServiceClient;

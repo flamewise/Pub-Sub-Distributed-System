@@ -1,3 +1,14 @@
+/**
+ * Name: Simon Chen
+ * Surname: Chen
+ * Student ID: 1196439
+ *
+ * Description: The Subscriber class represents a subscriber in the publisher-subscriber system. Subscribers
+ * can subscribe to topics and receive messages published by publishers. The class stores the subscriber's
+ * identity and manages their interaction with the broker.
+ * 
+ * Date: 11/10/2024
+ */
 package com.example.subscriber;
 
 import java.io.BufferedReader;

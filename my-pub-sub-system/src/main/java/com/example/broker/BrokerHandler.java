@@ -1,3 +1,14 @@
+/**
+ * Name: Simon Chen
+ * Surname: Chen
+ * Student ID: 1196439
+ *
+ * Description: The BrokerHandler class manages communication between brokers. It is responsible for handling
+ * inter-broker messaging, including topic synchronization and subscription updates across multiple brokers
+ * in the network.
+ * 
+ * Date: 11/10/2024
+ */
 package com.example.broker;
 
 import java.io.BufferedReader;

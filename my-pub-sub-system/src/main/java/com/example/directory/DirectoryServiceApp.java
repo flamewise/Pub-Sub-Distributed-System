@@ -1,3 +1,15 @@
+/**
+ * Name: Simon Chen
+ * Surname: Chen
+ * Student ID: 1196439
+ *
+ * Description: The DirectoryServiceApp class serves as the main entry point for the directory service application. 
+ * It listens for broker registration and deregistration requests on a specified port and keeps track of active 
+ * brokers in the system.
+ * 
+ * Date: 11/10/2024
+ */
+
 package com.example.directory;
 
 import java.io.BufferedReader;

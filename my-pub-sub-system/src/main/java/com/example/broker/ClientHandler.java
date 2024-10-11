@@ -1,3 +1,14 @@
+/**
+ * Name: Simon Chen
+ * Surname: Chen
+ * Student ID: 1196439
+ *
+ * Description: The ClientHandler class manages the connection between a client (publisher or subscriber) and
+ * the broker. It handles client commands, such as publishing messages, subscribing to topics, and unsubscribing.
+ * The class ensures that clients can communicate effectively with the broker.
+ * 
+ * Date: 11/10/2024
+ */
 package com.example.broker;
 
 import com.example.subscriber.Subscriber;

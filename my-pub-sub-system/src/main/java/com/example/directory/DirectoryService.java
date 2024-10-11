@@ -1,3 +1,14 @@
+/**
+ * Name: Simon Chen
+ * Surname: Chen
+ * Student ID: 1196439
+ *
+ * Description: The DirectoryService class manages the registration and tracking of active brokers in the system. 
+ * It allows brokers to register, deregister, and provides a way to retrieve the list of active brokers for 
+ * communication between them.
+ * 
+ * Date: 11/10/2024
+ */
 package com.example.directory;
 
 import java.util.Set;

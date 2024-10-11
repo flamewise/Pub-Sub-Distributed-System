@@ -1,3 +1,14 @@
+/**
+ * Name: Simon Chen
+ * Surname: Chen
+ * Student ID: 1196439
+ *
+ * Description: The Publisher class represents a publisher in the publisher-subscriber system. Publishers
+ * create topics and publish messages to them, which are distributed to all subscribed clients. The class
+ * manages interaction between the publisher and the broker.
+ * 
+ * Date: 11/10/2024
+ */
 package com.example.publisher;
 
 import java.io.BufferedReader;
