@@ -1,7 +1,11 @@
 com/example/subscriber/Subscriber.class
+com/example/broker/BrokerHandler.class
 com/example/broker/Broker.class
 com/example/broker/BrokerApp.class
+com/example/directory/DirectoryServiceApp.class
+com/example/directory/DirectoryService.class
 com/example/publisher/Publisher.class
 com/example/broker/ClientHandler.class
 com/example/publisher/PublisherApp.class
+com/example/directory/DirectoryServiceClient.class
 com/example/subscriber/SubscriberApp.class

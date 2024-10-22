@@ -1,0 +1,22 @@
+@startuml
+actor Client
+participant BrokerA
+participant BrokerB
+participant BrokerC
+
+Client -> BrokerA: Connect as Subscriber
+BrokerA -> BrokerB: request_lock
+BrokerA -> BrokerC: request_lock
+BrokerB -> BrokerA: lock_ack
+BrokerC -> BrokerA: lock_ack
+
+BrokerA -> BrokerB: get_local_subscriber_count
+BrokerA -> BrokerC: get_local_subscriber_count
+BrokerB -> BrokerA: subscriber_count 3
+BrokerC -> BrokerA: subscriber_count 4
+
+BrokerA -> Client: Accept Connection 
+
+BrokerA -> BrokerB: release_lock
+BrokerA -> BrokerC: release_lock
+@enduml

@@ -1,46 +1,60 @@
+/**
+ * Name: Simon Chen
+ * Surname: Chen
+ * Student ID: 1196439
+ *
+ * Description: The Publisher class represents a publisher in the publisher-subscriber system. Publishers
+ * create topics and publish messages to them, which are distributed to all subscribed clients. The class
+ * manages interaction between the publisher and the broker.
+ * 
+ * Date: 11/10/2024
+ */
 package com.example.publisher;
 
 import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.io.PrintWriter;
-import java.net.Socket;
 
 public class Publisher {
-    private Socket socket;
-    private PrintWriter out;
-    private BufferedReader in;
+    private final PrintWriter out;
+    private final BufferedReader in;
 
-    public Publisher(String brokerHost, int brokerPort, String username) throws IOException {
-        this.socket = new Socket(brokerHost, brokerPort);  // Connect to the broker
-        this.out = new PrintWriter(socket.getOutputStream(), true);
-        this.in = new BufferedReader(new InputStreamReader(socket.getInputStream()));  // For receiving responses from the broker
-
-        // Send the username to the broker after connection
-        out.println(username);
-        System.out.println("Connected to broker at " + brokerHost + ":" + brokerPort + " as " + username);
+    // Constructor to use existing PrintWriter and BufferedReader
+    public Publisher(PrintWriter out, BufferedReader in) {
+        this.out = out;
+        this.in = in;
     }
 
+    // Method to create a new topic
     public void createTopic(String topicId, String topicName) {
         out.println("create " + topicId + " " + topicName);  // Send topic ID and topic name
         receiveBrokerResponse();
     }
 
+    // Method to publish a message to a topic, limited to 100 characters
     public void publishMessage(String topicId, String message) {
+        if (message.length() > 100) {
+            System.out.println("Error: Message exceeds 100 characters. Please shorten your message.");
+            return;
+        }
+        
         out.println("publish " + topicId + " " + message);  // Send topic ID and message
         receiveBrokerResponse();
     }
 
+    // Method to show subscriber count for a topic
     public void showSubscriberCount(String topicId) {
         out.println("show " + topicId);  // Send topic ID
         receiveBrokerResponse();
     }
 
+    // Method to delete a topic
     public void deleteTopic(String topicId) {
         out.println("delete " + topicId);  // Send topic ID
         receiveBrokerResponse();
     }
 
+    // Method to receive a response from the broker
     private void receiveBrokerResponse() {
         try {
             String response;
@@ -48,15 +62,6 @@ public class Publisher {
                 System.out.println(response);
                 break;  // Read only one response from the broker
             }
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
-    public void closeConnection() {
-        try {
-            if (out != null) out.close();
-            if (socket != null) socket.close();
         } catch (IOException e) {
             e.printStackTrace();
         }

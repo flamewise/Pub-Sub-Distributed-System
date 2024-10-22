@@ -1,47 +1,34 @@
-package com.example.broker;
+/**
+ * Name: Simon Chen
+ * Surname: Chen
+ * Student ID: 1196439
+ *
+ * Description: The BrokerApp class is the main entry point for running the broker application. It sets up a new Broker instance 
+ * and starts it in a separate thread. The broker is initialized with a port number and a directory service address 
+ * that helps it discover and communicate with other brokers in the network.
+ * 
+ * Date: 11/10/2024
+ */
 
-import java.util.ArrayList;
-import java.util.List;
+package com.example.broker;
 
 public class BrokerApp {
     public static void main(String[] args) {
-        if (args.length < 1) {
-            System.out.println("Usage: java -jar broker.jar <port> [-b <brokerIP:port> ...]");
+        if (args.length < 2) {
+            System.out.println("Usage: java -jar broker.jar <port> <directoryServiceIP:port>");
             return;
         }
 
         try {
             int port = Integer.parseInt(args[0]);
-            Broker broker = new Broker(port);
+            String directoryServiceAddress = args[1];
 
-            // Handle additional broker connections if provided using the "-b" flag
-            List<String> otherBrokers = new ArrayList<>();
-            if (args.length > 2 && "-b".equals(args[1])) {
-                for (int i = 2; i < args.length; i++) {
-                    otherBrokers.add(args[i]);
-                }
-            }
+            // Create a new Broker instance with the port and directory service address
+            Broker broker = new Broker(port, directoryServiceAddress);
 
-            // Start the broker in a new thread
-            new Thread(broker::start).start();
-
-            // Connect to other brokers if IP:Port are provided
-            if (!otherBrokers.isEmpty()) {
-                System.out.println("Connecting to other brokers...");
-                for (String otherBroker : otherBrokers) {
-                    String[] brokerDetails = otherBroker.split(":");
-                    if (brokerDetails.length == 2) {
-                        String brokerIP = brokerDetails[0];
-                        int brokerPort = Integer.parseInt(brokerDetails[1]);
-
-                        broker.connectToBroker(brokerIP, brokerPort);  // Connect to the specified broker
-                    } else {
-                        System.out.println("Invalid broker address: " + otherBroker);
-                    }
-                }
-            } else {
-                System.out.println("No other brokers to connect to.");
-            }
+            // Start the broker in a new thread using a Runnable
+            Thread brokerThread = new Thread(() -> broker.start());
+            brokerThread.start();
 
         } catch (NumberFormatException e) {
             System.out.println("Error: Port must be a valid number.");
