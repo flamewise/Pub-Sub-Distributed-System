@@ -98,5 +98,4 @@ create topic1 "My First Topic"
 publish topic1 "Hello to all subscribers!"
 ```
 
-
 With these steps, you should see the subscriber receiving the message through the connected brokers.
