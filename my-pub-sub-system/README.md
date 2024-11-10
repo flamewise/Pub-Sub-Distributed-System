@@ -82,27 +82,21 @@ current
 
 ## Example Workflow
 
-1. Start two brokers:
-   ```bash
-   java -jar jars/broker.jar 12345
-   java -jar jars/broker.jar 12346 localhost 12345
-   ```
+```bash
+# 1. Start two brokers:
+java -jar jars/broker.jar 12345
+java -jar jars/broker.jar 12346 localhost 12345
 
-2. Start a publisher connected to the first broker:
-   ```bash
-   java -jar jars/publisher.jar localhost 12345
-   ```
+# 2. Start a publisher connected to the first broker:
+java -jar jars/publisher.jar localhost 12345
 
-3. Start a subscriber connected to the second broker:
-   ```bash
-   java -jar jars/subscriber.jar localhost 12346 subscriber1
-   ```
+# 3. Start a subscriber connected to the second broker:
+java -jar jars/subscriber.jar localhost 12346 subscriber1
 
-4. In the publisher terminal, create a topic and publish a message:
-   ```bash
-   create topic1 "My First Topic"
-   publish topic1 "Hello to all subscribers!"
-   ```
+# 4. In the publisher terminal, create a topic and publish a message:
+create topic1 "My First Topic"
+publish topic1 "Hello to all subscribers!"
+```
 
 
 With these steps, you should see the subscriber receiving the message through the connected brokers.
