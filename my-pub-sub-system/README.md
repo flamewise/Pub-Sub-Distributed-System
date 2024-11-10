@@ -20,7 +20,7 @@ Make sure you have built `broker.jar`, `publisher.jar`, and `subscriber.jar` fil
 
 Open a terminal and start the broker by specifying a port number. Optionally, you can connect to another broker by providing the IP and port of an existing broker.
 
-```
+```bash
 # Start Broker on port 12345
 java -jar jars/broker.jar 12345
 
@@ -32,7 +32,7 @@ java -jar jars/broker.jar 12346 localhost 12345
 
 In a new terminal, start a publisher and connect it to the broker.
 
-```
+```bash
 # Connect publisher to Broker on port 12345
 java -jar jars/publisher.jar localhost 12345
 ```
@@ -44,7 +44,7 @@ The publisher can issue commands such as:
 
 Example commands:
 
-```
+```bash
 create topic1 "First Topic"
 publish topic1 "Hello, Subscribers!"
 ```
@@ -53,7 +53,7 @@ publish topic1 "Hello, Subscribers!"
 
 In another terminal, start a subscriber and connect it to a broker.
 
-```
+```bash
 # Connect subscriber to Broker on port 12346
 java -jar jars/subscriber.jar localhost 12346 subscriber1
 ```
@@ -67,7 +67,7 @@ The subscriber can issue commands such as:
 
 Example commands:
 
-```
+```bash
 sub topic1
 unsub topic1
 list all
@@ -83,22 +83,22 @@ current
 ## Example Workflow
 
 1. Start two brokers:
-   ```
+```bash
    java -jar jars/broker.jar 12345
    java -jar jars/broker.jar 12346 localhost 12345
-   ```
+```
 2. Start a publisher connected to the first broker:
-   ```
+```bash
    java -jar jars/publisher.jar localhost 12345
-   ```
+```
 3. Start a subscriber connected to the second broker:
-   ```
+```bash
    java -jar jars/subscriber.jar localhost 12346 subscriber1
-   ```
+```
 4. In the publisher terminal, create a topic and publish a message:
-   ```
+```bash
    create topic1 "My First Topic"
    publish topic1 "Hello to all subscribers!"
-   ```
+```
 
 With these steps, you should see the subscriber receiving the message through the connected brokers.
