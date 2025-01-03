@@ -1,6 +1,7 @@
+
 # My Pub-Sub System
 
-This project is a simple Publish-Subscribe (Pub-Sub) system implemented in Java. It allows multiple brokers to communicate with each other, publishers to create topics and publish messages, and subscribers to subscribe to topics and receive published messages.
+This project is a simple Publish-Subscribe (Pub-Sub) system implemented in Java. It allows multiple brokers to communicate with each other, publishers to create topics and publish messages, and subscribers to subscribe to topics and receive published messages. The system uses TCP for communication.
 
 ## Prerequisites
 
@@ -109,3 +110,23 @@ current
    ```
 
 With these steps, you should see the subscriber receiving the message through the connected brokers.
+
+## System Diagrams
+
+### Interaction Diagram
+
+![Interaction Diagram](images/interaction.png)
+
+This diagram illustrates the interactions between the Publisher, Subscriber, Broker, and Directory Service during message exchange and broker synchronization.
+
+### Class Design
+
+![Class Design](images/class_design.png)
+
+This diagram presents the class structure of the system, showing the relationships between components like `Broker`, `PublisherApp`, `SubscriberApp`, `ClientHandler`, and `DirectoryServiceClient`.
+
+### Distributed Lock Mechanism
+
+![Distributed Lock](images/distributed_lock.png)
+
+This diagram depicts the locking mechanism used to coordinate subscriber connections and prevent race conditions across multiple brokers.
