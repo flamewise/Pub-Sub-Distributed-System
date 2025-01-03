@@ -1,6 +1,7 @@
+
 # My Pub-Sub System
 
-This project is a simple Publish-Subscribe (Pub-Sub) system implemented in Java. It allows multiple brokers to communicate with each other, publishers to create topics and publish messages, and subscribers to subscribe to topics and receive published messages.
+This project is a simple Publish-Subscribe (Pub-Sub) system implemented in Java. It allows multiple brokers to communicate with each other, publishers to create topics and publish messages, and subscribers to subscribe to topics and receive published messages. The system uses TCP for communication.
 
 ## Prerequisites
 
@@ -20,22 +21,22 @@ Make sure you have built `broker.jar`, `publisher.jar`, and `subscriber.jar` fil
 
 Open a terminal and start the broker by specifying a port number. Optionally, you can connect to another broker by providing the IP and port of an existing broker.
 
----
+```bash
 # Start Broker on port 12345
 java -jar jars/broker.jar 12345
 
 # Start another Broker on port 12346 and connect it to the broker at 12345
 java -jar jars/broker.jar 12346 localhost 12345
----
+```
 
 ### Step 2: Start the Publisher
 
 In a new terminal, start a publisher and connect it to the broker.
 
----
+```bash
 # Connect publisher to Broker on port 12345
 java -jar jars/publisher.jar localhost 12345
----
+```
 
 The publisher can issue commands such as:
 
@@ -44,19 +45,19 @@ The publisher can issue commands such as:
 
 Example commands:
 
----
+```bash
 create topic1 "First Topic"
 publish topic1 "Hello, Subscribers!"
----
+```
 
 ### Step 3: Start the Subscriber
 
 In another terminal, start a subscriber and connect it to a broker.
 
----
+```bash
 # Connect subscriber to Broker on port 12346
 java -jar jars/subscriber.jar localhost 12346 subscriber1
----
+```
 
 The subscriber can issue commands such as:
 
@@ -67,12 +68,12 @@ The subscriber can issue commands such as:
 
 Example commands:
 
----
+```bash
 sub topic1
 unsub topic1
 list all
 current
----
+```
 
 ## Notes
 
@@ -82,23 +83,50 @@ current
 
 ## Example Workflow
 
-1. Start two brokers:
-   ---
+1. **Start two brokers:**
+
+   ```bash
    java -jar jars/broker.jar 12345
    java -jar jars/broker.jar 12346 localhost 12345
-   ---
-2. Start a publisher connected to the first broker:
-   ---
+   ```
+
+2. **Start a publisher connected to the first broker:**
+
+   ```bash
    java -jar jars/publisher.jar localhost 12345
-   ---
-3. Start a subscriber connected to the second broker:
-   ---
+   ```
+
+3. **Start a subscriber connected to the second broker:**
+
+   ```bash
    java -jar jars/subscriber.jar localhost 12346 subscriber1
-   ---
-4. In the publisher terminal, create a topic and publish a message:
-   ---
+   ```
+
+4. **In the publisher terminal, create a topic and publish a message:**
+
+   ```bash
    create topic1 "My First Topic"
    publish topic1 "Hello to all subscribers!"
-   ---
+   ```
 
 With these steps, you should see the subscriber receiving the message through the connected brokers.
+
+## System Diagrams
+
+### Interaction Diagram
+
+![Interaction Diagram](images/interaction.png)
+
+This diagram illustrates the interactions between the Publisher, Subscriber, Broker, and Directory Service during message exchange and broker synchronization.
+
+### Class Design
+
+![Class Design](images/class_design.png)
+
+This diagram presents the class structure of the system, showing the relationships between components like `Broker`, `PublisherApp`, `SubscriberApp`, `ClientHandler`, and `DirectoryServiceClient`.
+
+### Distributed Lock Mechanism
+
+![Distributed Lock](images/distributed_lock.png)
+
+This diagram depicts the locking mechanism used to coordinate subscriber connections and prevent race conditions across multiple brokers.
